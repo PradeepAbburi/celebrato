@@ -1,0 +1,6 @@
+{
+  "name": "Celebrato - Party Rooms & Event Vault",
+  "description": "Book premium party rooms with custom add-ons, manage event bookings in real-time, and store party pictures and videos in collaborative event vaults.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

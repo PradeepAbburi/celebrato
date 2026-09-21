@@ -1,0 +1,166 @@
+import { Room, AddOnItem } from '../types';
+
+export const INITIAL_ROOMS: Room[] = [
+  {
+    id: 'room-neon-cyber',
+    name: 'Cyberpunk Neon Pulse',
+    theme: 'Cyberpunk & Laser Rave',
+    description: 'Immerse your squad in a futuristic glow sanctuary equipped with interactive LED grid walls, dynamic laser arrays, dual Pioneer DJ mixers, and sub-bass audio cannons.',
+    capacity: 35,
+    pricePerHour: 140,
+    pictures: [
+      'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80'
+    ],
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    amenities: ['Laser Projection Array', 'Pioneer DDJ DJ Station', 'Sound-Reactive LED Ceiling', 'Private Bar Counter', 'Smoke & Haze Machine'],
+    soundLightingSpecs: '4000W JBL Array + Martin Rush Strobe Lights + DMX Controller',
+    active: true,
+    featured: true,
+    minHours: 2,
+  },
+  {
+    id: 'room-retro-disco',
+    name: 'Studio 77 Retro Disco',
+    theme: '70s Disco Funk & Glitter',
+    description: 'Step under massive motorized mirror balls with illuminated multi-color dance floors, vintage vinyl booths, and champagne coolers. Perfect for milestone birthdays and grooving.',
+    capacity: 45,
+    pricePerHour: 165,
+    pictures: [
+      'https://images.unsplash.com/photo-1545128485-c400e7702796?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?auto=format&fit=crop&w=1200&q=80'
+    ],
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4',
+    amenities: ['Light-up Dancefloor', 'Dual Giant Mirror Balls', 'Champagne Chiller Buckets', 'Velvet Booth Seating', 'Retro Polaroid Corner'],
+    soundLightingSpecs: 'Bose F1 Model 812 Dual Sound + Analog EQ + Color Wash Lighting',
+    active: true,
+    featured: true,
+    minHours: 2,
+  },
+  {
+    id: 'room-luxe-penthouse',
+    name: 'The Crown Penthouse Suite',
+    theme: 'VIP Ultra Lounge & Rooftop',
+    description: 'An elite glass-walled sanctuary boasting plush leather banquettes, cocktail mixologist island, city skyline views, billiard table, and private patio lounge.',
+    capacity: 50,
+    pricePerHour: 220,
+    pictures: [
+      'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1574096079513-d8259312b785?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1200&q=80'
+    ],
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
+    amenities: ['Private Rooftop Access', 'Custom Marble Bar', 'Slate Pool Table', 'Dolby Atmos Surround', 'Dedicated Service Butler'],
+    soundLightingSpecs: 'Genelec Smart Active Sound System + Warm Dim Mood Lighting',
+    active: true,
+    featured: true,
+    minHours: 3,
+  },
+  {
+    id: 'room-karaoke-tokyo',
+    name: 'Tokyo Neon KTV Studio',
+    theme: 'High-Tech Private Karaoke',
+    description: 'Sing your heart out in an acoustically tuned private sanctuary with 4 wireless Shure microphones, 100,000+ song library in 12 languages, tambourines, and ambient neon.',
+    capacity: 25,
+    pricePerHour: 110,
+    pictures: [
+      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1514306191717-452ec28c7814?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1526478806334-5fd488fcaabc?auto=format&fit=crop&w=1200&q=80'
+    ],
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    amenities: ['4x Shure Wireless Mics', 'Dual 75" 4K Karaoke Displays', 'Global Song Catalog', 'Neon Light Ring Photospot', 'Snack Platter Counter'],
+    soundLightingSpecs: 'Yamaha DBR12 Active Monitors + Auto-Tune FX Rack',
+    active: true,
+    minHours: 2,
+  },
+  {
+    id: 'room-arcade-glow',
+    name: 'Glow Arcade & Gaming Den',
+    theme: 'Retro Arcade & Esports Arena',
+    description: 'Full arcade cabinets with Pac-Man, Street Fighter, air hockey, PS5 & Nintendo Switch racing rigs on massive curved OLED displays with blacklight glow seating.',
+    capacity: 30,
+    pricePerHour: 125,
+    pictures: [
+      'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1534423861386-85a16f5d13fd?auto=format&fit=crop&w=1200&q=80'
+    ],
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+    amenities: ['8 Vintage Arcade Cabinets', 'Air Hockey Arena', '4-Player Mario Kart Rig', 'Blacklight Neon Graffiti', 'Bar Top Craft Beer Fridge'],
+    soundLightingSpecs: 'Klipsch THX Surround + UV Blacklight Tubes + Chasing Neon',
+    active: true,
+    minHours: 2,
+  }
+];
+
+export const INITIAL_ADDONS: AddOnItem[] = [
+  {
+    id: 'addon-balloons-arch',
+    name: 'Deluxe Helium Balloon Arch & Bouquets',
+    category: 'balloons',
+    price: 65,
+    icon: 'PartyPopper',
+    description: 'Custom 200-balloon organic garland arch with metallic chrome balloons, custom color theme, and 2 table balloon bouquets.',
+    defaultSelected: false,
+  },
+  {
+    id: 'addon-balloons-led',
+    name: 'Glow-in-the-Dark LED Balloons (Set of 24)',
+    category: 'balloons',
+    price: 35,
+    icon: 'Sparkles',
+    description: 'Translucent floating bobo balloons with warm golden & neon micro fairy lights.',
+  },
+  {
+    id: 'addon-smoke-laser',
+    name: 'Pro Laser Array & Dense Fog Smoke FX',
+    category: 'lighting',
+    price: 45,
+    icon: 'Zap',
+    description: 'Synchronized RGB aerial laser beams plus ground fog generator for cinematic club drops.',
+  },
+  {
+    id: 'addon-dj-setup',
+    name: 'Pioneer DJ Decks & Sound Engineer Setup',
+    category: 'music',
+    price: 85,
+    icon: 'Headphones',
+    description: 'Dual CDJ-3000 + DJM-900NXS2 mixer pre-calibrated with direct plug-and-play laptop/USB support.',
+  },
+  {
+    id: 'addon-cake-artisan',
+    name: 'Artisan 3-Tier Celebration Cake + Candles',
+    category: 'food',
+    price: 75,
+    icon: 'Cake',
+    description: 'Handcrafted premium drip cake (Chocolate Fudge or Berry Vanilla) with custom piped name and sparkler candles.',
+  },
+  {
+    id: 'addon-photo-booth',
+    name: 'Instant Polaroid Cam + 40 Film Prints & Props',
+    category: 'entertainment',
+    price: 50,
+    icon: 'Camera',
+    description: 'Fujifilm Instax Wide camera, 40 color film sheets, fun sunglasses, wigs, party hats, and memory peg board.',
+  },
+  {
+    id: 'addon-punch-fountain',
+    name: 'Illuminated Mocktail & Punch Fountain',
+    category: 'food',
+    price: 40,
+    icon: 'GlassWater',
+    description: '3-tier glowing beverage fountain with 5 gallons of tropical fruit celebration punch.',
+  },
+  {
+    id: 'addon-karaoke-pack',
+    name: 'VIP Wireless Karaoke & Auto-Tune Sound Pack',
+    category: 'entertainment',
+    price: 45,
+    icon: 'Mic',
+    description: 'Two extra gold Shure wireless mics, professional reverb processor, and portable Bluetooth monitor.',
+  }
+];

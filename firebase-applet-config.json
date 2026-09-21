@@ -1,0 +1,10 @@
+{
+  "projectId": "attendance-dash",
+  "appId": "1:199677597256:web:7ee8adc37f557001876a7d",
+  "apiKey": "AIzaSyDGaYNMJYRjKySRMkAuA9PBkR65fK5iNew",
+  "authDomain": "attendance-dash.firebaseapp.com",
+  "databaseURL": "https://attendance-dash-default-rtdb.firebaseio.com",
+  "storageBucket": "attendance-dash.firebasestorage.app",
+  "messagingSenderId": "199677597256",
+  "measurementId": "G-1BQS8QZGRT"
+}

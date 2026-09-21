@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'dineshkrishnapradeep@gmail.com' ||
+        request.auth.token.email == 'admin@partyhouse.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Admin list
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Party Rooms catalog - public read so guests and hosts can explore rooms, videos, and packages
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Party Add-on packages and equipment
+    match /addons/{addonId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Bookings
+    match /bookings/{bookingId} {
+      // User can read their own bookings, or admin can read all bookings
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Creating a booking requires being signed in and matching userId
+      allow create: if isSignedIn() && (
+        request.resource.data.userId == request.auth.uid || isAdmin()
+      );
+      
+      // Update booking: user can update their own pending booking notes or admin can update status/pricing
+      allow update: if isSignedIn() && (
+        (resource.data.userId == request.auth.uid) || isAdmin()
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // Collaborative Party Media Vault
+    match /vault_media/{mediaId} {
+      // Attendees and friends can view pictures and videos for booked party events
+      allow read: if true;
+      
+      // Guests and friends can upload party media into the event vault
+      allow create: if isSignedIn() && request.resource.data.uploadedByUid == request.auth.uid;
+      
+      // Uploader or admin can edit/delete, or any signed in guest can like
+      allow update: if isSignedIn() && (
+        resource.data.uploadedByUid == request.auth.uid || 
+        isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount'])
+      );
+      
+      allow delete: if isSignedIn() && (
+        resource.data.uploadedByUid == request.auth.uid || isAdmin()
+      );
+    }
+  }
+}
