@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Navbar, AppView } from './components/Navbar';
+import { Navbar } from './components/Navbar';
 import { RoomCard } from './components/RoomCard';
 import { RoomDetailsPage } from './components/RoomDetailsPage';
 import { BookingPage } from './components/BookingPage';
 import { AuthPage } from './components/AuthPage';
 import { UserDashboard } from './components/UserDashboard';
 import { AdminPanel } from './components/AdminPanel';
-import { Room, Booking, DashboardTab } from './types';
+import { AboutPage } from './components/AboutPage';
+import { ContactPage } from './components/ContactPage';
+import { BottomBar } from './components/BottomBar';
+import { MemVaultPage } from './components/MemVaultPage';
+import { ProfilePage } from './components/ProfilePage';
+import { Room, Booking, DashboardTab, AppView } from './types';
 import { subscribeRooms, ensureInitialRoomsSeeded } from './services/partyDataService';
 import { 
   Sparkles, 
@@ -22,7 +27,8 @@ import {
   ChevronRight,
   PartyPopper,
   CheckCircle,
-  Video as VideoIcon
+  Video as VideoIcon,
+  Clock
 } from 'lucide-react';
 
 function AppContent() {
@@ -36,14 +42,21 @@ function AppContent() {
   // Selected room for dedicated RoomDetailsPage & BookingPage
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [selectedPackageDuration, setSelectedPackageDuration] = useState<number | null>(null);
+  // Pending room/duration to resume booking after login
+  const [pendingBookRoom, setPendingBookRoom] = useState<Room | null>(null);
+  const [pendingBookDuration, setPendingBookDuration] = useState<number | null>(null);
 
-  // Sync route with URL (support /admin and #admin)
+  // Sync route with URL (support /admin, /about, /contact)
   useEffect(() => {
     const handleLocation = () => {
       const path = window.location.pathname;
       const hash = window.location.hash;
       if (path.includes('/admin') || hash === '#admin') {
         setActiveView('admin');
+      } else if (path.includes('/about') || hash === '#about') {
+        setActiveView('about');
+      } else if (path.includes('/contact') || hash === '#contact') {
+        setActiveView('contact');
       }
     };
     handleLocation();
@@ -59,6 +72,10 @@ function AppContent() {
     setActiveView(view);
     if (view === 'admin') {
       window.history.pushState(null, '', '/admin');
+    } else if (view === 'about') {
+      window.history.pushState(null, '', '/about');
+    } else if (view === 'contact') {
+      window.history.pushState(null, '', '/contact');
     } else {
       window.history.pushState(null, '', '/');
     }
@@ -100,15 +117,41 @@ function AppContent() {
   };
 
   const handleBookRoom = (room: Room, initialDuration?: number) => {
+    if (!currentUser) {
+      // Save pending booking intent, go to auth, come back here after login
+      setPendingBookRoom(room);
+      setPendingBookDuration(initialDuration || null);
+      setReturnViewAfterAuth('booking');
+      setActiveView('auth');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setSelectedRoom(room);
     setSelectedPackageDuration(initialDuration || null);
     setActiveView('booking');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleNavigateAuth = () => {
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
+  const handleNavigateAuth = (mode: 'login' | 'signup' = 'login') => {
+    setAuthMode(mode);
     setReturnViewAfterAuth(activeView);
     setActiveView('auth');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleAuthSuccess = () => {
+    if (returnViewAfterAuth === 'booking' && pendingBookRoom) {
+      // Restore the pending booking after login
+      setSelectedRoom(pendingBookRoom);
+      setSelectedPackageDuration(pendingBookDuration);
+      setPendingBookRoom(null);
+      setPendingBookDuration(null);
+      setActiveView('booking');
+    } else {
+      handleNavigateView(returnViewAfterAuth === 'booking' ? 'home' : 'dashboard');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -131,7 +174,7 @@ function AppContent() {
       />
 
       {/* Main Container - Renders dedicated pages with NO popups */}
-      <main className="flex-1">
+      <main className="flex-1 pb-20 md:pb-12">
         
         {/* VIEW 1: ADMIN OPERATIONS DASHBOARD (/admin) */}
         {activeView === 'admin' && (
@@ -147,7 +190,7 @@ function AppContent() {
           />
         )}
 
-        {/* VIEW 3: DEDICATED SEPARATE BOOKING PAGE (with hourly packages, add-ons, points, date & contact) */}
+        {/* VIEW 3: DEDICATED SEPARATE BOOKING PAGE (with hourly packages, add-ons, date & contact) */}
         {activeView === 'booking' && selectedRoom && (
           <BookingPage
             room={selectedRoom}
@@ -163,9 +206,7 @@ function AppContent() {
             onBookingSuccess={handleBookingSuccess}
             onNavigateAuth={handleNavigateAuth}
             onNavigateVault={(_bookingId) => {
-              setActiveView('dashboard');
-              setDashboardTab('vault');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              handleNavigateView('mem-vault');
             }}
           />
         )}
@@ -173,8 +214,26 @@ function AppContent() {
         {/* VIEW 4: DEDICATED SEPARATE AUTHENTICATION PAGE */}
         {activeView === 'auth' && (
           <AuthPage
+            defaultMode={authMode}
             onBack={() => handleNavigateView(returnViewAfterAuth || 'home')}
-            onSuccess={() => handleNavigateView(returnViewAfterAuth === 'booking' ? 'booking' : 'dashboard')}
+            onSuccess={handleAuthSuccess}
+          />
+        )}
+
+        {/* VIEW 4b: DEDICATED MEMORY VAULT PAGE (Event Folders, Direct Camera & Gallery Drop) */}
+        {activeView === 'mem-vault' && (
+          <MemVaultPage
+            onBackToHome={() => handleNavigateView('home')}
+            onNavigateAuth={handleNavigateAuth}
+          />
+        )}
+
+        {/* VIEW 4c: DEDICATED USER PROFILE PAGE */}
+        {activeView === 'profile' && (
+          <ProfilePage
+            onNavigateView={handleNavigateView}
+            setDashboardTab={setDashboardTab}
+            onNavigateAuth={handleNavigateAuth}
           />
         )}
 
@@ -195,11 +254,11 @@ function AppContent() {
             <div className="space-y-2">
               <h2 className="text-2xl font-black text-white font-outfit">Host Account Required</h2>
               <p className="text-sm text-gray-400 max-w-md mx-auto">
-                Sign in to view your party reservations, redeem points for discounts, and collaborate on shared event media vaults.
+                Sign in to view your party reservations and collaborate on shared event media vaults.
               </p>
             </div>
             <button
-              onClick={handleNavigateAuth}
+              onClick={() => handleNavigateAuth()}
               className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition shadow-lg shadow-amber-500/20"
             >
               Sign In to Access Dashboard
@@ -207,19 +266,35 @@ function AppContent() {
           </div>
         )}
 
-        {/* VIEW 6: HOME EXPLORE PAGE - Party Rooms Catalog & Features */}
+        {/* VIEW 6: ABOUT CELEBRATO PAGE */}
+        {activeView === 'about' && (
+          <AboutPage
+            onBack={() => handleNavigateView('home')}
+            onExploreRooms={() => handleNavigateView('home')}
+            onContact={() => handleNavigateView('contact')}
+          />
+        )}
+
+        {/* VIEW 7: CONTACT CONCIERGE PAGE */}
+        {activeView === 'contact' && (
+          <ContactPage
+            onBack={() => handleNavigateView('home')}
+          />
+        )}
+
+        {/* VIEW 8: HOME EXPLORE PAGE - Party Rooms Catalog & Features */}
         {activeView === 'home' && (
           <div className="space-y-16 pb-20">
             
-            {/* Hero Section */}
-            <section className="relative overflow-hidden pt-12 pb-16 px-4 sm:px-6 lg:px-8 border-b border-[#383838] bg-radial-[at_top] from-amber-950/20 via-[#202020] to-[#202020]">
+            {/* Hero Section - Hidden on mobile, shown on desktop */}
+            <section className="hidden md:block relative overflow-hidden pt-14 pb-16 px-4 sm:px-6 lg:px-8 border-b border-[#383838] bg-radial-[at_top] from-amber-950/25 via-[#202020] to-[#202020]">
               {/* Ambient lighting */}
               <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-amber-500/10 via-rose-500/15 to-violet-600/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="max-w-5xl mx-auto text-center relative z-10 space-y-6">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#282828] border border-[#3e3e3e] text-amber-300 text-xs font-bold uppercase tracking-wider shadow-xl">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  Next-Gen Party Venues • Video Tours • Collaborative Event Vaults
+                  Private Suites • 1080p Video Tours • Shared Event Vaults
                 </div>
 
                 <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight font-outfit leading-[1.08]">
@@ -230,7 +305,7 @@ function AppContent() {
                 </h1>
 
                 <p className="max-w-2xl mx-auto text-sm sm:text-base text-gray-300 leading-relaxed font-normal">
-                  Watch full room video tours before booking, choose discounted hourly packages, customize with party balloon & DJ add-ons, and share your private <strong>Event Media Vault</strong> where all guests can upload photos and videos into one folder.
+                  Private acoustically tuned celebration suites with pro DJ booths, synchronized laser lighting, and transparent hourly pricing. Scan a room QR code so everyone at the party can upload memories into one shared folder.
                 </p>
 
                 {/* Hero CTA & Quick Highlights */}
@@ -240,54 +315,60 @@ function AppContent() {
                     className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-black text-sm transition shadow-xl shadow-amber-500/25 active:scale-[0.99] flex items-center justify-center gap-2"
                   >
                     <Calendar className="w-4 h-4" />
-                    Browse Party Rooms
+                    <span className="hidden sm:inline">Browse Party Rooms</span>
+                    <span className="sm:hidden">Browse Rooms</span>
                   </a>
 
                   {currentUser ? (
                     <button
-                      onClick={() => {
-                        handleNavigateView('dashboard');
-                        setDashboardTab('vault');
-                      }}
+                      onClick={() => handleNavigateView('mem-vault')}
                       className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#282828] hover:bg-[#323232] text-white border border-[#3e3e3e] font-bold text-sm transition flex items-center justify-center gap-2"
                     >
                       <FolderLock className="w-4 h-4 text-rose-400" />
-                      Open My Party Vault
+                      <span className="hidden sm:inline">Open My Party Vault</span>
+                      <span className="sm:hidden">Party Vault</span>
                     </button>
                   ) : (
                     <button
-                      onClick={handleNavigateAuth}
+                      onClick={() => handleNavigateAuth()}
                       className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#282828] hover:bg-[#323232] text-white border border-[#3e3e3e] font-bold text-sm transition flex items-center justify-center gap-2"
                     >
                       <Sparkles className="w-4 h-4 text-amber-400" />
-                      Host Sign In & Earn 500 Pts
+                      <span className="hidden sm:inline">Host Sign In & Earn 500 Pts</span>
+                      <span className="sm:hidden">Sign In / Register</span>
                     </button>
                   )}
                 </div>
 
-                {/* Feature Badges */}
-                <div className="pt-6 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-xs text-gray-400">
-                  <div className="flex items-center gap-2">
-                    <VideoIcon className="w-4 h-4 text-rose-400" />
-                    <span>HD 1080p Video Tours Included</span>
+                {/* Feature Highlights Strip */}
+                <div className="pt-4 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-gray-300">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#282828]/80 border border-[#383838]">
+                    <VideoIcon className="w-3.5 h-3.5 text-rose-400" />
+                    <span>4K Video Tours</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <PartyPopper className="w-4 h-4 text-amber-400" />
-                    <span>Custom Balloon & DJ Add-Ons</span>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#282828]/80 border border-[#383838]">
+                    <PartyPopper className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Balloons & DJ Add-Ons</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FolderLock className="w-4 h-4 text-violet-400" />
-                    <span>Shared Guest Photo/Video Vault</span>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#282828]/80 border border-[#383838]">
+                    <FolderLock className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Collaborative Media Vault</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#282828]/80 border border-[#383838]">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>100% Private & Soundproof</span>
                   </div>
                 </div>
               </div>
             </section>
 
+
+
             {/* PARTY ROOMS CATALOG */}
-            <section id="rooms-catalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+            <section id="rooms-catalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pt-4 md:pt-0">
               
-              {/* Header & Filter Controls */}
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-[#383838] pb-6">
+              {/* Header & Filter Controls - hidden on mobile */}
+              <div className="hidden md:flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-[#383838] pb-6">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block mb-1">
                     Signature Spaces
@@ -308,7 +389,7 @@ function AppContent() {
                       { id: 'all', label: 'All Themes' },
                       { id: 'laser', label: '⚡ Cyber & Laser' },
                       { id: 'disco', label: '🪩 Retro Disco' },
-                      { id: 'vip', label: '👑 VIP Lounge' },
+                      { id: 'vip', label: '👑 Premium Lounge' },
                       { id: 'karaoke', label: '🎤 KTV Studio' },
                     ].map((tab) => (
                       <button
@@ -339,6 +420,16 @@ function AppContent() {
                     <option value="capacity">Largest Capacity</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Mobile-only compact header */}
+              <div className="md:hidden space-y-1">
+                <h2 className="text-xl font-black text-white font-outfit">
+                  Explore Party Rooms
+                </h2>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Private celebration suites with DJ booths, laser lighting & transparent hourly pricing. Tap any room for details.
+                </p>
               </div>
 
               {/* Rooms Grid */}
@@ -436,23 +527,47 @@ function AppContent() {
       {/* Footer */}
       <footer className="border-t border-[#383838] bg-[#1d1d1d] py-10 text-xs text-gray-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
             <span className="font-bold text-gray-200 font-outfit text-sm">CELEBRATO</span>
-            <span>• Premium Party Room Booking & Collaborative Media Vault</span>
+            <span>• Premium Party Rooms & Event Vault</span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5 flex-wrap justify-center">
+            <button
+              onClick={() => handleNavigateView('about')}
+              className="text-gray-400 hover:text-white transition"
+            >
+              About Celebrato
+            </button>
+
+            <button
+              onClick={() => handleNavigateView('contact')}
+              className="text-gray-400 hover:text-white transition"
+            >
+              Contact Concierge
+            </button>
+
             <button
               onClick={() => handleNavigateView('admin')}
               className="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              Admin Portal (/admin)
+              Admin Portal
             </button>
-            <span>Real-time Firebase Firestore & Auth</span>
           </div>
         </div>
       </footer>
+
+      {/* Mobile 4-Tab Bottom Bar: Explore, Bookings, Mem Vault, Profile - Hidden on Auth Page */}
+      {activeView !== 'auth' && (
+        <BottomBar
+          activeView={activeView}
+          setActiveView={handleNavigateView}
+          dashboardTab={dashboardTab}
+          setDashboardTab={setDashboardTab}
+          onNavigateAuth={handleNavigateAuth}
+        />
+      )}
 
     </div>
   );

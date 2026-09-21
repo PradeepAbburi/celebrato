@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { X, Sparkles, Mail, Lock, User as UserIcon, ShieldCheck } from 'lucide-react';
 
+import { formatAuthError } from '../utils/authErrors';
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -25,14 +27,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
     setLoading(true);
     try {
       if (isSignUp) {
-        if (!name.trim()) throw new Error('Please enter your full name');
+        if (!name.trim()) {
+          throw new Error('Please enter your full name');
+        }
         await signUpWithEmail(email, password, name);
       } else {
         await signInWithEmail(email, password);
       }
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Authentication failed. Please check credentials.');
+      setError(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -45,7 +49,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
       await signInWithGoogle();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Google Sign-In failed');
+      if (err?.code === 'auth/popup-closed-by-user') {
+        // User voluntarily closed popup; no harsh error needed
+        return;
+      }
+      setError(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -58,7 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
       await signInDemoGuest(asAdmin);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Demo login failed');
+      setError(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -92,7 +100,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
           </h2>
           <p className="text-sm text-slate-400 mt-1">
             {isSignUp 
-              ? 'Get 500 bonus loyalty points on sign up to redeem discounts.' 
+              ? 'Create your host account to book suites and manage event media vaults.' 
               : 'Sign in to access your bookings, customize add-ons, and open party vaults.'}
           </p>
         </div>

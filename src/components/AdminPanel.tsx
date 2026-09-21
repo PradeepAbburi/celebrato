@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, BOOTSTRAP_ADMIN_EMAIL, ADMIN_PASSWORD } from '../context/AuthContext';
-import { Room, Booking, AddOnItem } from '../types';
+import { Room, Booking, AddOnItem, ContactMessage } from '../types';
 import { 
   subscribeRooms, 
   subscribeAllBookings, 
   updateRoomDetails, 
   saveRoom, 
   deleteRoom, 
-  updateBookingStatus 
+  updateBookingStatus,
+  subscribeContactMessages,
+  updateContactMessageStatus,
+  deleteContactMessage
 } from '../services/partyDataService';
 import { INITIAL_ADDONS } from '../data/defaultData';
 import { 
@@ -31,7 +34,11 @@ import {
   Sparkles, 
   AlertCircle,
   Clock,
-  ArrowUpRight
+  ArrowUpRight,
+  MessageSquare,
+  Mail,
+  Phone,
+  ExternalLink
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -46,11 +53,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
   const [passcodeError, setPasscodeError] = useState('');
 
   // Active admin tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'bookings' | 'rooms_pricing' | 'addons' | 'analytics'>('bookings');
+  const [activeAdminTab, setActiveAdminTab] = useState<'bookings' | 'rooms_pricing' | 'addons' | 'analytics' | 'contacts'>('bookings');
 
   // Data states
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [contacts, setContacts] = useState<ContactMessage[]>([]);
+
+  // Search & Filter contacts
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactFilterStatus, setContactFilterStatus] = useState<string>('all');
 
   // Search & Filter bookings
   const [bookingSearch, setBookingSearch] = useState('');
@@ -66,7 +78,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
   const [isNewRoomModalOpen, setIsNewRoomModalOpen] = useState(false);
   const [newRoomData, setNewRoomData] = useState<Partial<Room>>({
     name: '',
-    theme: 'VIP Glow & Sound',
+    theme: 'Premium Glow & Sound',
     description: '',
     capacity: 30,
     pricePerHour: 150,
@@ -86,13 +98,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
     return () => unsub();
   }, []);
 
-  // Subscribe to all bookings when admin is authenticated
+  // Subscribe to all bookings and contact messages when admin is authenticated
   useEffect(() => {
     if (isAdmin) {
-      const unsub = subscribeAllBookings((data) => {
+      const unsubBookings = subscribeAllBookings((data) => {
         setBookings(data);
       });
-      return () => unsub();
+      const unsubContacts = subscribeContactMessages((data) => {
+        setContacts(data);
+      });
+      return () => {
+        unsubBookings();
+        unsubContacts();
+      };
     }
   }, [isAdmin]);
 
@@ -413,44 +431,62 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
       </div>
 
       {/* Admin Tabs */}
-      <div className="inline-flex p-1 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-bold">
+      <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-bold overflow-x-auto max-w-full">
         <button
           id="admin-tab-bookings-btn"
           onClick={() => setActiveAdminTab('bookings')}
-          className={`px-5 py-2.5 rounded-xl transition flex items-center gap-2 ${
+          className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl transition flex items-center gap-2 ${
             activeAdminTab === 'bookings'
               ? 'bg-amber-500 text-slate-950 font-black shadow-md'
               : 'text-slate-400 hover:text-white'
           }`}
         >
           <Calendar className="w-4 h-4" />
-          Bookings Management ({bookings.length})
+          <span>Bookings ({bookings.length})</span>
         </button>
 
         <button
           id="admin-tab-pricing-btn"
           onClick={() => setActiveAdminTab('rooms_pricing')}
-          className={`px-5 py-2.5 rounded-xl transition flex items-center gap-2 ${
+          className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl transition flex items-center gap-2 ${
             activeAdminTab === 'rooms_pricing'
               ? 'bg-amber-500 text-slate-950 font-black shadow-md'
               : 'text-slate-400 hover:text-white'
           }`}
         >
           <DollarSign className="w-4 h-4" />
-          Rooms & Hourly Pricing ({rooms.length})
+          <span>Rooms & Pricing ({rooms.length})</span>
         </button>
 
         <button
           id="admin-tab-addons-btn"
           onClick={() => setActiveAdminTab('addons')}
-          className={`px-5 py-2.5 rounded-xl transition flex items-center gap-2 ${
+          className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl transition flex items-center gap-2 ${
             activeAdminTab === 'addons'
               ? 'bg-amber-500 text-slate-950 font-black shadow-md'
               : 'text-slate-400 hover:text-white'
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          Add-Ons Catalog
+          <span>Add-Ons Catalog</span>
+        </button>
+
+        <button
+          id="admin-tab-contacts-btn"
+          onClick={() => setActiveAdminTab('contacts')}
+          className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl transition flex items-center gap-2 ${
+            activeAdminTab === 'contacts'
+              ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Contact Inquiries ({contacts.length})</span>
+          {contacts.filter(c => c.status === 'new').length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">
+              {contacts.filter(c => c.status === 'new').length} new
+            </span>
+          )}
         </button>
       </div>
 
@@ -821,6 +857,183 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: CONTACT INQUIRIES MANAGEMENT */}
+      {activeAdminTab === 'contacts' && (
+        <div className="space-y-4">
+          {/* Filter & Search Bar */}
+          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+              <input
+                id="admin-contact-search-input"
+                type="text"
+                placeholder="Search by name, email, phone, or message..."
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto">
+              {(['all', 'new', 'contacted', 'resolved'] as const).map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setContactFilterStatus(st)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition shrink-0 ${
+                    contactFilterStatus === st
+                      ? 'bg-amber-500 text-slate-950 font-bold'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {st} {st === 'all' ? `(${contacts.length})` : `(${contacts.filter(c => c.status === st).length})`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Inquiries List */}
+          <div className="space-y-3">
+            {contacts
+              .filter((c) => {
+                if (contactFilterStatus !== 'all' && c.status !== contactFilterStatus) return false;
+                if (contactSearch.trim()) {
+                  const q = contactSearch.toLowerCase();
+                  const matchName = (c.name || '').toLowerCase().includes(q);
+                  const matchEmail = (c.email || '').toLowerCase().includes(q);
+                  const matchPhone = (c.phone || '').toLowerCase().includes(q);
+                  const matchMsg = (c.message || '').toLowerCase().includes(q);
+                  const matchEvent = (c.eventType || '').toLowerCase().includes(q);
+                  return matchName || matchEmail || matchPhone || matchMsg || matchEvent;
+                }
+                return true;
+              })
+              .map((contact) => (
+                <div
+                  key={contact.id}
+                  className="p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition space-y-4"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base font-black text-white font-outfit">
+                          {contact.name}
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            contact.status === 'new'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              : contact.status === 'contacted'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          }`}
+                        >
+                          {contact.status}
+                        </span>
+                        {contact.eventType && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 text-[10px] font-bold border border-amber-500/20">
+                            {contact.eventType}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-400 mt-1 flex-wrap">
+                        <a
+                          href={`mailto:${contact.email}?subject=Celebrato Party Inquiry - ${encodeURIComponent(contact.eventType || 'Party Room Booking')}`}
+                          className="flex items-center gap-1 text-amber-400 hover:underline"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          {contact.email}
+                        </a>
+                        {contact.phone && (
+                          <a
+                            href={`tel:${contact.phone}`}
+                            className="flex items-center gap-1 text-slate-300 hover:text-white"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            {contact.phone}
+                          </a>
+                        )}
+                        <span className="text-slate-500">
+                          {new Date(contact.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Quick status dropdown / actions */}
+                    <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+                      <select
+                        value={contact.status}
+                        onChange={async (e) => {
+                          const newStatus = e.target.value as ContactMessage['status'];
+                          await updateContactMessageStatus(contact.id, newStatus);
+                          setStatusFeedback(`Inquiry status updated to ${newStatus}.`);
+                          setTimeout(() => setStatusFeedback(null), 3000);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-medium focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="new">Mark New</option>
+                        <option value="contacted">Mark Contacted</option>
+                        <option value="resolved">Mark Resolved</option>
+                      </select>
+
+                      <a
+                        href={`mailto:${contact.email}?subject=Celebrato Party Inquiry - ${encodeURIComponent(contact.eventType || 'Party')}`}
+                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-semibold transition flex items-center gap-1"
+                        title="Reply via email"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Reply</span>
+                      </a>
+
+                      <button
+                        onClick={async () => {
+                          if (window.confirm(`Delete inquiry from ${contact.name}?`)) {
+                            await deleteContactMessage(contact.id);
+                            setStatusFeedback(`Inquiry from ${contact.name} deleted.`);
+                            setTimeout(() => setStatusFeedback(null), 3000);
+                          }
+                        }}
+                        className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition"
+                        title="Delete inquiry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Message & Event details */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-4 text-xs text-slate-400">
+                      {contact.eventDate && (
+                        <div>
+                          Est. Date: <strong className="text-slate-200">{contact.eventDate}</strong>
+                        </div>
+                      )}
+                      {contact.guestsEstimated && (
+                        <div>
+                          Est. Guests: <strong className="text-slate-200">{contact.guestsEstimated} people</strong>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">
+                      {contact.message}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+            {contacts.length === 0 && (
+              <div className="p-12 text-center rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                <MessageSquare className="w-8 h-8 text-slate-600 mx-auto" />
+                <div className="text-sm font-bold text-slate-400">No Contact Inquiries Yet</div>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Messages submitted by hosts via the website Contact page will show up here instantly in real time.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

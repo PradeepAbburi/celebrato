@@ -107,7 +107,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     ? selectedBooking.eventName 
     : (customJoinedEventName || 'Party Squad Celebration');
 
-  const activeEventCode = selectedBooking?.shareCode || friendCodeInput || 'PARTY-VIP';
+  const activeEventCode = selectedBooking?.shareCode || friendCodeInput || 'PARTY-CODE';
 
   // Handle local media file upload (image or video converted to dataURL)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,104 +181,21 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       
-      {/* Top Banner & Profile Overview */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-[#282828] border border-[#383838] shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 p-0.5 shadow-lg shadow-amber-500/20">
-            <div className="w-full h-full bg-[#202020] rounded-[14px] flex items-center justify-center text-2xl font-black text-amber-400">
-              {profile?.photoURL ? (
-                <img src={profile.photoURL} alt="avatar" className="w-full h-full object-cover rounded-[14px]" />
-              ) : (
-                profile?.displayName?.charAt(0) || 'P'
-              )}
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-white font-outfit">
-                {profile?.displayName || 'Party Host'}
-              </h2>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-wider border border-amber-500/30">
-                VIP Host
-              </span>
-            </div>
-            <p className="text-sm text-gray-400 mt-0.5">
-              {currentUser?.email || 'Logged in via Party Pass'}
-            </p>
-          </div>
-        </div>
-
-        {/* VIP Party Concierge Action Card */}
-        <div className="flex items-center gap-4 bg-[#202020] px-5 py-3.5 rounded-2xl border border-[#383838]">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Celebrato VIP Access
-            </div>
-            <div className="text-sm font-bold text-white font-outfit">
-              Explore Hourly Packages
-            </div>
-          </div>
-          <button
-            onClick={onNavigateHome}
-            className="ml-2 px-3.5 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 transition shadow-md active:scale-95"
-          >
-            + Book Room
-          </button>
-        </div>
-      </div>
-
-      {/* MASTER TOGGLE (Mandated by user prompt) */}
-      <div className="flex items-center justify-center">
-        <div 
-          id="dashboard-master-toggle"
-          className="inline-flex p-1.5 bg-[#282828] border border-[#383838] rounded-2xl shadow-xl max-w-md w-full"
-        >
-          <button
-            id="toggle-tab-bookings-btn"
-            onClick={() => setActiveTab('bookings')}
-            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 ${
-              activeTab === 'bookings'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-lg shadow-amber-500/20'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Party Bookings ({bookings.length})</span>
-          </button>
-
-          <button
-            id="toggle-tab-vault-btn"
-            onClick={() => setActiveTab('vault')}
-            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 ${
-              activeTab === 'vault'
-                ? 'bg-gradient-to-r from-rose-500 to-violet-600 text-white shadow-lg shadow-rose-500/20'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <FolderLock className="w-4 h-4" />
-            <span>Event Media Vault</span>
-          </button>
-        </div>
-      </div>
-
       {/* VIEW 1: BOOKINGS & PAST BOOKINGS */}
       {activeTab === 'bookings' && (
         <div className="space-y-6">
           {/* Sub-toggle: Upcoming vs Past */}
-          <div className="flex items-center justify-between">
-            <div className="inline-flex p-1 bg-slate-950 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="inline-flex p-1 bg-[#181818] rounded-2xl border border-[#333]">
               <button
                 id="subfilter-upcoming-btn"
                 onClick={() => setBookingsFilter('upcoming')}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                   bookingsFilter === 'upcoming'
-                    ? 'bg-slate-800 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-[#282828] text-white shadow-sm border border-[#444]'
+                    : 'text-gray-400 hover:text-white'
                 }`}
               >
                 Active & Upcoming ({upcomingBookings.length})
@@ -286,47 +203,33 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               <button
                 id="subfilter-past-btn"
                 onClick={() => setBookingsFilter('past')}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                   bookingsFilter === 'past'
-                    ? 'bg-slate-800 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-[#282828] text-white shadow-sm border border-[#444]'
+                    : 'text-gray-400 hover:text-white'
                 }`}
               >
                 Past Bookings ({pastBookings.length})
               </button>
             </div>
-
-            <button
-              onClick={onNavigateHome}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              Book New Room
-            </button>
           </div>
 
           {/* Bookings List */}
           {(bookingsFilter === 'upcoming' ? upcomingBookings : pastBookings).length === 0 ? (
-            <div className="text-center py-16 px-4 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-slate-800 text-slate-500 flex items-center justify-center mx-auto">
+            <div className="text-center py-20 px-4 rounded-3xl bg-[#202020] border border-[#333] space-y-4 shadow-xl">
+              <div className="w-16 h-16 rounded-2xl bg-[#282828] text-amber-400 flex items-center justify-center mx-auto border border-[#383838]">
                 <Calendar className="w-8 h-8" />
               </div>
               <div>
                 <h4 className="text-lg font-bold text-white font-outfit">
                   No {bookingsFilter === 'upcoming' ? 'Active Bookings' : 'Past Bookings'} Found
                 </h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+                <p className="text-xs text-gray-400 max-w-sm mx-auto mt-1 leading-relaxed">
                   {bookingsFilter === 'upcoming'
-                    ? 'Ready to celebrate? Browse our high-energy party rooms and customize with balloons, DJ gear, and lights!'
-                    : 'Your completed party events will appear here with archived receipts and media links.'}
+                    ? 'Ready to celebrate? Browse our private luxury celebration suites and customize with balloon arches, laser rigs, and catering!'
+                    : 'Your past party reservations and event archives will appear here.'}
                 </p>
               </div>
-              <button
-                onClick={onNavigateHome}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20"
-              >
-                Explore Party Rooms
-              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -334,35 +237,35 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <div
                   key={booking.id}
                   id={`booking-card-${booking.id}`}
-                  className="rounded-3xl bg-slate-900/90 border border-slate-800 overflow-hidden flex flex-col justify-between hover:border-slate-700 transition shadow-xl"
+                  className="rounded-3xl bg-[#202020] border border-[#333] overflow-hidden flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xl"
                 >
                   <div>
                     {/* Header Image with room name */}
-                    <div className="relative h-44 w-full bg-slate-950">
+                    <div className="relative h-48 w-full bg-[#181818] overflow-hidden">
                       <img
                         src={booking.roomImage || 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=800&q=80'}
                         alt={booking.roomName}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/50" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#202020] via-transparent to-black/60" />
 
                       <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                        <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-sm text-xs font-bold text-amber-400 border border-slate-700">
+                        <span className="px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md text-xs font-bold text-amber-400 border border-white/10">
                           {booking.roomName}
                         </span>
 
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md ${
                           booking.status === 'confirmed'
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                             : booking.status === 'checked-in'
                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                            : 'bg-slate-700 text-slate-300'
+                            : 'bg-black/60 text-gray-300 border border-white/10'
                         }`}>
                           {booking.status}
                         </span>
                       </div>
 
-                      <div className="absolute bottom-3 left-3 right-3">
+                      <div className="absolute bottom-3 left-4 right-4">
                         <h3 className="text-xl font-black text-white font-outfit truncate">
                           {booking.eventName}
                         </h3>
@@ -372,30 +275,30 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     {/* Booking Details */}
                     <div className="p-5 space-y-4">
                       <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Date & Time</span>
-                          <span className="font-semibold text-white">{booking.date}</span>
-                          <span className="block text-[11px] text-slate-400 truncate">{booking.timeSlot}</span>
+                        <div className="p-3 rounded-2xl bg-[#181818] border border-[#2e2e2e]">
+                          <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Date & Time</span>
+                          <span className="font-bold text-white text-sm block">{booking.date}</span>
+                          <span className="block text-[11px] text-gray-400 mt-0.5">{booking.timeSlot}</span>
                         </div>
 
-                        <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Guests & Duration</span>
-                          <span className="font-semibold text-white">{booking.guestsCount} Guests</span>
-                          <span className="block text-[11px] text-slate-400">{booking.durationHours} Hours reserved</span>
+                        <div className="p-3 rounded-2xl bg-[#181818] border border-[#2e2e2e]">
+                          <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Guests & Duration</span>
+                          <span className="font-bold text-white text-sm block">{booking.guestsCount} Guests</span>
+                          <span className="block text-[11px] text-amber-400 mt-0.5">{booking.durationHours} Hours reserved</span>
                         </div>
                       </div>
 
                       {/* Add-Ons summary */}
                       {booking.addOns && booking.addOns.length > 0 && (
                         <div>
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
-                            Selected Add-Ons & Enhancements
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
+                            Included Add-Ons & Decor
                           </span>
                           <div className="flex flex-wrap gap-1.5">
                             {booking.addOns.map((addon, i) => (
                               <span
                                 key={i}
-                                className="px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-medium"
+                                className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold"
                               >
                                 {addon.quantity > 1 ? `${addon.quantity}x ` : ''}{addon.name}
                               </span>
@@ -405,28 +308,28 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       )}
 
                       {/* Share Code with friends */}
-                      <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                      <div className="p-3.5 rounded-2xl bg-[#181818] border border-[#2e2e2e] flex items-center justify-between">
                         <div>
-                          <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                          <span className="text-[10px] font-bold uppercase text-gray-400 block">
                             Event Vault Share Code
                           </span>
-                          <span className="text-sm font-mono font-bold text-amber-400">
+                          <span className="text-sm font-mono font-black text-amber-400 tracking-wider">
                             {booking.shareCode}
                           </span>
                         </div>
                         <button
                           onClick={() => copyPartyShareLink(booking.shareCode)}
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1"
+                          className="px-3 py-1.5 rounded-xl bg-[#282828] hover:bg-[#333] text-gray-200 text-xs font-bold transition flex items-center gap-1.5 border border-[#3a3a3a] cursor-pointer"
                         >
                           {copiedCode === booking.shareCode ? (
                             <>
                               <Check className="w-3.5 h-3.5 text-emerald-400" />
-                              Copied
+                              <span>Copied!</span>
                             </>
                           ) : (
                             <>
-                              <Share2 className="w-3.5 h-3.5" />
-                              Invite Friends
+                              <Share2 className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Share Code</span>
                             </>
                           )}
                         </button>
@@ -435,24 +338,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   </div>
 
                   {/* Actions footer */}
-                  <div className="px-5 pb-5 pt-2 flex items-center justify-between gap-3 border-t border-slate-800/80">
+                  <div className="p-5 pt-3 flex items-center justify-end gap-3 border-t border-[#2e2e2e]">
                     <div>
-                      <span className="text-xs text-slate-400">Total Paid:</span>
-                      <span className="text-lg font-black text-white font-outfit ml-1">${booking.finalPrice}</span>
+                      <span className="text-xs text-gray-400">Total Price:</span>
+                      <span className="text-lg font-black text-white font-outfit ml-1.5">₹{booking.finalPrice}</span>
                     </div>
-
-                    {/* Direct toggle into this event's vault */}
-                    <button
-                      id={`open-vault-btn-${booking.id}`}
-                      onClick={() => {
-                        setSelectedBookingId(booking.id);
-                        setActiveTab('vault');
-                      }}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-xs transition shadow-lg shadow-rose-500/20 flex items-center gap-1.5"
-                    >
-                      <FolderLock className="w-4 h-4" />
-                      Open Event Vault
-                    </button>
                   </div>
                 </div>
               ))}
@@ -466,7 +356,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         <div className="space-y-6">
           
           {/* Vault Header Controls: Event Selector & Code Input */}
-          <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+          <div className="p-6 rounded-3xl bg-[#202020] border border-[#383838] space-y-4 shadow-xl">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 text-xs font-bold uppercase tracking-wider mb-1 border border-rose-500/20">
@@ -476,7 +366,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <h3 className="text-2xl font-black text-white font-outfit">
                   {activeEventTitle}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-gray-400 mt-0.5">
                   All friends and party attendees can add photos & videos to this shared event folder in real-time.
                 </p>
               </div>
@@ -486,7 +376,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <button
                   id="vault-add-media-trigger-btn"
                   onClick={() => setIsUploadOpen(true)}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-sm transition shadow-lg shadow-rose-500/25 flex items-center gap-2 active:scale-95"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-sm transition shadow-lg shadow-rose-500/25 flex items-center gap-2 active:scale-95 cursor-pointer"
                 >
                   <Upload className="w-4 h-4" />
                   Add Pictures / Videos
@@ -495,10 +385,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             </div>
 
             {/* Event Folder Switcher & Friend Code Bar */}
-            <div className="pt-4 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="pt-4 border-t border-[#383838] grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Event Picker (if user has multiple bookings) */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
                   Select Event Album Folder:
                 </label>
                 {bookings.length > 0 ? (
@@ -506,7 +396,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     id="vault-event-selector"
                     value={selectedBookingId || ''}
                     onChange={(e) => setSelectedBookingId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 bg-[#181818] border border-[#383838] rounded-xl text-sm text-white focus:outline-none focus:border-rose-500"
                   >
                     {bookings.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -515,7 +405,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     ))}
                   </select>
                 ) : (
-                  <div className="text-xs text-slate-400 p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                  <div className="text-xs text-gray-400 p-2.5 bg-[#181818] rounded-xl border border-[#383838]">
                     No booked party found yet. Use a friend's code below to join their album!
                   </div>
                 )}
@@ -523,7 +413,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
               {/* Enter friend's party code */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
                   Or Join Friend's Party Album via Code:
                 </label>
                 <div className="flex items-center gap-2">
@@ -533,7 +423,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     placeholder="e.g. PARTY-4821"
                     value={friendCodeInput}
                     onChange={(e) => setFriendCodeInput(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white uppercase placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
+                    className="w-full px-3.5 py-2 bg-[#181818] border border-[#383838] rounded-xl text-sm text-white uppercase placeholder-gray-500 focus:outline-none focus:border-rose-500 font-mono"
                   />
                   <button
                     onClick={() => {
@@ -542,7 +432,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                         setCustomJoinedEventName(`Party Event ${friendCodeInput.trim()}`);
                       }
                     }}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white transition shrink-0"
+                    className="px-4 py-2 rounded-xl bg-[#282828] hover:bg-[#333333] text-xs font-bold text-white transition shrink-0 cursor-pointer"
                   >
                     Open Album
                   </button>
@@ -551,8 +441,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             </div>
 
             {/* Friend Invite Share Bar */}
-            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-slate-300">
+            <div className="p-3.5 rounded-2xl bg-[#181818] border border-[#383838] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-gray-300">
                 <Share2 className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>
                   Share event code <strong className="font-mono text-amber-400 text-sm">{activeEventCode}</strong> with guests so they can dump photos & party clips!
@@ -560,7 +450,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               </div>
               <button
                 onClick={() => copyPartyShareLink(activeEventCode)}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition text-xs font-semibold shrink-0"
+                className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition text-xs font-semibold shrink-0 cursor-pointer"
               >
                 {copiedCode === activeEventCode ? 'Link Copied!' : 'Copy Invite Link'}
               </button>
@@ -569,11 +459,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
           {/* Media Filtering Tabs */}
           <div className="flex items-center justify-between">
-            <div className="inline-flex p-1 bg-slate-900 rounded-xl border border-slate-800 text-xs">
+            <div className="inline-flex p-1 bg-[#202020] rounded-xl border border-[#383838] text-xs">
               <button
                 onClick={() => setMediaFilter('all')}
                 className={`px-3 py-1.5 rounded-lg font-bold transition ${
-                  mediaFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
+                  mediaFilter === 'all' ? 'bg-[#282828] text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
                 All Media ({vaultMedia.length})
@@ -581,7 +471,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               <button
                 onClick={() => setMediaFilter('image')}
                 className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                  mediaFilter === 'image' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
+                  mediaFilter === 'image' ? 'bg-[#282828] text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
                 <ImageIcon className="w-3.5 h-3.5" />
@@ -590,7 +480,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               <button
                 onClick={() => setMediaFilter('video')}
                 className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                  mediaFilter === 'video' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
+                  mediaFilter === 'video' ? 'bg-[#282828] text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
                 <VideoIcon className="w-3.5 h-3.5" />
@@ -598,14 +488,14 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               </button>
             </div>
 
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-gray-400">
               {filteredMedia.length} memories saved in real-time
             </span>
           </div>
 
           {/* Media Grid */}
           {filteredMedia.length === 0 ? (
-            <div className="text-center py-16 px-4 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4">
+            <div className="text-center py-16 px-4 rounded-3xl bg-[#202020] border border-[#383838] space-y-4 shadow-xl">
               <div className="w-16 h-16 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/20">
                 <FolderLock className="w-8 h-8" />
               </div>
@@ -613,13 +503,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <h4 className="text-lg font-bold text-white font-outfit">
                   Party Vault is Empty
                 </h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+                <p className="text-xs text-gray-400 max-w-sm mx-auto mt-1">
                   Be the first to drop party pictures, dancefloor videos, or candid group snaps into this event album!
                 </p>
               </div>
               <button
                 onClick={() => setIsUploadOpen(true)}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg shadow-rose-500/20"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg shadow-rose-500/20 cursor-pointer"
               >
                 Upload First Picture / Video
               </button>
@@ -631,7 +521,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   key={media.id}
                   id={`vault-media-${media.id}`}
                   onClick={() => setLightboxItem(media)}
-                  className="group relative aspect-square rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 hover:border-amber-400/50 transition cursor-pointer shadow-lg"
+                  className="group relative aspect-square rounded-2xl overflow-hidden bg-[#181818] border border-[#383838] hover:border-amber-400/50 transition cursor-pointer shadow-lg"
                 >
                   {media.mediaType === 'video' ? (
                     <div className="w-full h-full relative">
@@ -657,11 +547,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   )}
 
                   {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80 group-hover:opacity-90 transition-opacity pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80 group-hover:opacity-90 transition-opacity pointer-events-none" />
 
                   {/* Top badges */}
                   <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
-                    <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-bold text-slate-200">
+                    <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-bold text-gray-200">
                       {media.mediaType === 'video' ? 'Video' : 'Photo'}
                     </span>
 
@@ -682,7 +572,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     <h5 className="text-xs font-bold text-white truncate drop-shadow">
                       {media.title}
                     </h5>
-                    <p className="text-[10px] text-slate-300 truncate">
+                    <p className="text-[10px] text-gray-300 truncate">
                       By {media.uploadedByName}
                     </p>
                   </div>

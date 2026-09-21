@@ -85,10 +85,10 @@ export function getRoomHourlyPackages(room: Room): RoomPackage[] {
     },
     {
       id: 'pkg-6h',
-      name: 'VIP All-Night Extravaganza',
+      name: 'All-Night Extravaganza',
       hours: 6,
-      badge: '👑 Ultimate VIP',
-      tagline: 'The complete VIP takeover for epic celebrations and afterparties',
+      badge: '👑 Ultimate Premium',
+      tagline: 'The complete takeover for epic celebrations and afterparties',
       discountPercent: 15,
       standardPrice: rate * 6,
       totalPrice: Math.round(rate * 6 * 0.85),
@@ -97,7 +97,7 @@ export function getRoomHourlyPackages(room: Room): RoomPackage[] {
       perks: [
         '6 Hours total venue takeover',
         '15% Maximum Package Discount',
-        'VIP concierge & audio equipment specialist on call',
+        'Dedicated concierge & audio equipment specialist on call',
         'Full Event Vault hosting with ultra-high resolution',
         'Complete setup, sound engineer & clean-up included',
       ],

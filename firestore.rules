@@ -40,6 +40,7 @@ service cloud.firestore {
     // Party Rooms catalog - public read so guests and hosts can explore rooms, videos, and packages
     match /rooms/{roomId} {
       allow read: if true;
+      allow list: if true;
       allow write: if isAdmin();
     }
 
@@ -86,6 +87,14 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (
         resource.data.uploadedByUid == request.auth.uid || isAdmin()
       );
+    }
+
+    // Contact Form Inquiries
+    match /contacts/{contactId} {
+      // Anyone can submit an inquiry through the contact form
+      allow create: if true;
+      // Admins can read, update status, and manage contact submissions
+      allow read, update, delete: if isAdmin();
     }
   }
 }

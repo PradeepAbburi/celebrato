@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Room } from '../types';
-import { getRoomHourlyPackages } from '../utils/pricingPackages';
-import { Users, Sparkles, Play, Eye, Calendar, ArrowRight, PackageCheck } from 'lucide-react';
+
+import { Users, Sparkles, Play, Eye, Calendar, ArrowRight } from 'lucide-react';
 
 interface RoomCardProps {
   room: Room;
@@ -11,8 +11,7 @@ interface RoomCardProps {
 
 export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) => {
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
-  const packages = getRoomHourlyPackages(room);
-  const primePkg = packages.find((p) => p.popular) || packages[1];
+  
 
   return (
     <div 
@@ -94,40 +93,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) =
             {room.description}
           </p>
 
-          {/* Hourly Celebration Packages Tiers Preview */}
-          <div className="p-3 rounded-2xl bg-[#202020] border border-[#383838] mb-4 space-y-2">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
-                <PackageCheck className="w-3.5 h-3.5" />
-                Hourly Packages
-              </span>
-              <span className="text-gray-400">
-                Rate: <strong className="text-gray-200">${room.pricePerHour}/hr</strong>
-              </span>
-            </div>
 
-            <div className="grid grid-cols-4 gap-1.5">
-              {packages.map((pkg) => (
-                <div
-                  key={pkg.id}
-                  title={`${pkg.name} (${pkg.hours}h): $${pkg.totalPrice}`}
-                  className={`p-1.5 rounded-xl text-center border transition ${
-                    pkg.popular
-                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                      : 'bg-[#282828] border-[#383838] text-gray-300'
-                  }`}
-                >
-                  <div className="text-[10px] font-bold">{pkg.hours} Hours</div>
-                  <div className="text-xs font-black font-outfit text-white">${pkg.totalPrice}</div>
-                  {pkg.discountPercent > 0 ? (
-                    <div className="text-[9px] text-emerald-400 font-semibold">-{pkg.discountPercent}%</div>
-                  ) : (
-                    <div className="text-[9px] text-gray-500">Starter</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Key Amenities */}
           <div className="flex flex-wrap gap-1.5 mb-5">
@@ -148,37 +114,37 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) =
         </div>
 
         {/* Pricing & Page Navigation Footer */}
-        <div className="pt-4 border-t border-[#383838] flex items-center justify-between gap-3">
-          <div>
+        <div className="pt-4 border-t border-[#383838] flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <div className="flex items-baseline gap-1">
-              <span className="text-xs text-gray-400 font-normal">from</span>
-              <span className="text-2xl font-black text-white font-outfit">${packages[0].totalPrice}</span>
-              <span className="text-xs text-gray-400 font-normal">/ 2h pkg</span>
+              <span className="text-xl sm:text-2xl font-black text-white font-outfit">₹{room.pricePerHour}/hr</span>
             </div>
-            <div className="text-xs text-amber-400 font-medium">
-              <span>${room.pricePerHour}/hr hourly rate</span>
+            <div className="text-[11px] text-amber-400 font-medium truncate">
+              ${room.pricePerHour}/hr rate
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               id={`room-details-page-btn-${room.id}`}
               onClick={() => onPreview(room)}
-              title="Open full dedicated room page with video tour & package options"
-              className="px-3 py-2.5 rounded-xl bg-[#323232] hover:bg-[#3a3a3a] text-gray-200 hover:text-white border border-[#404040] transition text-xs font-bold flex items-center gap-1.5 active:scale-95"
+              title="Open room details with video tour & packages"
+              className="px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-[#323232] hover:bg-[#3a3a3a] text-gray-200 hover:text-white border border-[#404040] transition text-xs font-bold flex items-center gap-1 active:scale-95"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>Details</span>
+              <span className="hidden sm:inline">Details</span>
+              <span className="sm:hidden">Tour</span>
             </button>
 
             <button
               id={`room-book-page-btn-${room.id}`}
-              onClick={() => onBook(room)}
-              title="Open dedicated booking page"
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs transition shadow-lg shadow-amber-500/20 flex items-center gap-1.5 active:scale-95"
+              onClick={() => onPreview(room)}
+              title="View details and book this room"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs transition shadow-lg shadow-amber-500/20 flex items-center gap-1 active:scale-95"
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Book Package</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Book Room</span>
+              <span className="sm:hidden">Book</span>
             </button>
           </div>
         </div>

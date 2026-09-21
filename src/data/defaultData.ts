@@ -43,7 +43,7 @@ export const INITIAL_ROOMS: Room[] = [
   {
     id: 'room-luxe-penthouse',
     name: 'The Crown Penthouse Suite',
-    theme: 'VIP Ultra Lounge & Rooftop',
+    theme: 'Ultra Lounge & Rooftop',
     description: 'An elite glass-walled sanctuary boasting plush leather banquettes, cocktail mixologist island, city skyline views, billiard table, and private patio lounge.',
     capacity: 50,
     pricePerHour: 220,
@@ -104,6 +104,7 @@ export const INITIAL_ADDONS: AddOnItem[] = [
     category: 'balloons',
     price: 65,
     icon: 'PartyPopper',
+    imageUrl: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=600&q=80',
     description: 'Custom 200-balloon organic garland arch with metallic chrome balloons, custom color theme, and 2 table balloon bouquets.',
     defaultSelected: false,
   },
@@ -113,6 +114,7 @@ export const INITIAL_ADDONS: AddOnItem[] = [
     category: 'balloons',
     price: 35,
     icon: 'Sparkles',
+    imageUrl: 'https://images.unsplash.com/photo-1567443024551-f3e3a7b9114e?auto=format&fit=crop&w=600&q=80',
     description: 'Translucent floating bobo balloons with warm golden & neon micro fairy lights.',
   },
   {
@@ -121,6 +123,7 @@ export const INITIAL_ADDONS: AddOnItem[] = [
     category: 'lighting',
     price: 45,
     icon: 'Zap',
+    imageUrl: 'https://images.unsplash.com/photo-1598387993281-cecf8b71a8f8?auto=format&fit=crop&w=600&q=80',
     description: 'Synchronized RGB aerial laser beams plus ground fog generator for cinematic club drops.',
   },
   {
@@ -129,6 +132,7 @@ export const INITIAL_ADDONS: AddOnItem[] = [
     category: 'music',
     price: 85,
     icon: 'Headphones',
+    imageUrl: 'https://images.unsplash.com/photo-1571266028243-e4733b0f0bb0?auto=format&fit=crop&w=600&q=80',
     description: 'Dual CDJ-3000 + DJM-900NXS2 mixer pre-calibrated with direct plug-and-play laptop/USB support.',
   },
   {
@@ -137,6 +141,7 @@ export const INITIAL_ADDONS: AddOnItem[] = [
     category: 'food',
     price: 75,
     icon: 'Cake',
+    imageUrl: 'https://images.unsplash.com/photo-1535141192574-5d4897c12636?auto=format&fit=crop&w=600&q=80',
     description: 'Handcrafted premium drip cake (Chocolate Fudge or Berry Vanilla) with custom piped name and sparkler candles.',
   },
   {
@@ -145,6 +150,7 @@ export const INITIAL_ADDONS: AddOnItem[] = [
     category: 'entertainment',
     price: 50,
     icon: 'Camera',
+    imageUrl: 'https://images.unsplash.com/photo-1603208598697-c4b2f92117a5?auto=format&fit=crop&w=600&q=80',
     description: 'Fujifilm Instax Wide camera, 40 color film sheets, fun sunglasses, wigs, party hats, and memory peg board.',
   },
   {
@@ -153,14 +159,17 @@ export const INITIAL_ADDONS: AddOnItem[] = [
     category: 'food',
     price: 40,
     icon: 'GlassWater',
+    imageUrl: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80',
     description: '3-tier glowing beverage fountain with 5 gallons of tropical fruit celebration punch.',
   },
   {
     id: 'addon-karaoke-pack',
-    name: 'VIP Wireless Karaoke & Auto-Tune Sound Pack',
+    name: 'Wireless Karaoke & Auto-Tune Sound Pack',
     category: 'entertainment',
     price: 45,
     icon: 'Mic',
+    imageUrl: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=600&q=80',
     description: 'Two extra gold Shure wireless mics, professional reverb processor, and portable Bluetooth monitor.',
   }
 ];
+

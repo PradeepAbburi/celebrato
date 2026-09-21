@@ -1,29 +1,11 @@
-import React, { useState } from 'react';
-import { Room, SelectedAddOn, Booking } from '../types';
-import { INITIAL_ADDONS } from '../data/defaultData';
+import React, { useState, useEffect } from 'react';
+import { Room, Booking, AddOnItem, SelectedAddOn } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { createBooking } from '../services/partyDataService';
-import { getRoomHourlyPackages } from '../utils/pricingPackages';
+import { createBooking, subscribeAddOns } from '../services/partyDataService';
 import confetti from 'canvas-confetti';
-import { 
-  ArrowLeft, 
-  Sparkles, 
-  Calendar, 
-  Clock, 
-  Users, 
-  Coins, 
-  Plus, 
-  Minus, 
-  Check, 
-  CheckCircle2, 
-  Gift, 
-  Share2, 
-  FolderLock, 
-  PartyPopper,
-  PackageCheck,
-  ShieldCheck,
-  Phone,
-  MessageSquare
+import {
+  ArrowLeft, Calendar, CheckCircle2, Share2, FolderLock,
+  Plus, Minus, Sparkles, ShoppingBag, Tag
 } from 'lucide-react';
 
 interface BookingPageProps {
@@ -35,132 +17,126 @@ interface BookingPageProps {
   onNavigateVault: (bookingId: string) => void;
 }
 
+const CATEGORY_COLORS: Record<string, string> = {
+  balloons:      'text-pink-400 bg-pink-500/10 border-pink-500/30',
+  music:         'text-violet-400 bg-violet-500/10 border-violet-500/30',
+  lighting:      'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+  food:          'text-amber-400 bg-amber-500/10 border-amber-500/30',
+  entertainment: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+};
+
 export const BookingPage: React.FC<BookingPageProps> = ({
   room,
-  initialHours = 3,
   onBack,
   onBookingSuccess,
   onNavigateAuth,
   onNavigateVault,
 }) => {
-  const { currentUser, profile } = useAuth();
-  const packages = getRoomHourlyPackages(room);
+  const { currentUser } = useAuth();
 
-  // Selected Package Duration
-  const [selectedHours, setSelectedHours] = useState<number>(initialHours);
-  
-  // Event details
-  const [eventName, setEventName] = useState('');
+  // Form fields
+  const [hostName, setHostName]   = useState('');
+  const [phone, setPhone]         = useState('');
   const [date, setDate] = useState(() => {
-    const target = new Date();
-    target.setDate(target.getDate() + 2);
-    return target.toISOString().split('T')[0];
+    const t = new Date();
+    t.setDate(t.getDate() + 2);
+    return t.toISOString().split('T')[0];
   });
-  const [timeSlot, setTimeSlot] = useState('19:00 - 22:00 (Prime Evening)');
-  const [guestsCount, setGuestsCount] = useState(Math.min(25, room.capacity));
-  const [phone, setPhone] = useState('');
-  const [notes, setNotes] = useState('');
-
-  // Selected Add-ons
-  const [selectedAddOns, setSelectedAddOns] = useState<Record<string, number>>({
-    'addon-balloons-arch': 1,
-    'addon-smoke-laser': 1,
-  });
-
-  // Submission state
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [startTime, setStartTime] = useState('19:00');
+  const [endTime, setEndTime]     = useState('22:00');
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
 
-  // Matched package or custom calculation
-  const matchedPackage = packages.find((p) => p.hours === selectedHours);
-  const discountPercent = matchedPackage ? matchedPackage.discountPercent : (selectedHours >= 6 ? 15 : selectedHours >= 4 ? 10 : selectedHours >= 3 ? 5 : 0);
-  const standardPrice = room.pricePerHour * selectedHours;
-  const roomBasePrice = matchedPackage ? matchedPackage.totalPrice : Math.round(standardPrice * (1 - discountPercent / 100));
+  // Add-ons
+  const [availableAddOns, setAvailableAddOns] = useState<AddOnItem[]>([]);
+  const [selectedAddOns, setSelectedAddOns]   = useState<Map<string, number>>(new Map());
 
-  const toggleAddOn = (addonId: string) => {
-    setSelectedAddOns((prev) => {
-      const current = prev[addonId] || 0;
-      if (current > 0) {
-        const copy = { ...prev };
-        delete copy[addonId];
-        return copy;
+  useEffect(() => {
+    const unsub = subscribeAddOns(setAvailableAddOns);
+    return unsub;
+  }, []);
+
+  const toggleAddOn = (addon: AddOnItem) => {
+    setSelectedAddOns(prev => {
+      const next = new Map(prev);
+      if (next.has(addon.id)) {
+        next.delete(addon.id);
       } else {
-        return { ...prev, [addonId]: 1 };
+        next.set(addon.id, 1);
       }
+      return next;
     });
   };
 
-  const updateAddOnQty = (addonId: string, delta: number) => {
-    setSelectedAddOns((prev) => {
-      const current = prev[addonId] || 0;
-      const next = Math.max(1, current + delta);
-      return { ...prev, [addonId]: next };
-    });
-  };
+  // Computed totals
+  const durationHours = Math.max(
+    0,
+    (Number(endTime.split(':')[0]) + Number(endTime.split(':')[1]) / 60) -
+    (Number(startTime.split(':')[0]) + Number(startTime.split(':')[1]) / 60)
+  );
+  const basePrice   = room.pricePerHour * Math.max(durationHours, 1);
+  const addOnsTotal = availableAddOns
+    .filter(a => selectedAddOns.has(a.id))
+    .reduce((sum, a) => sum + a.price * (selectedAddOns.get(a.id) || 1), 0);
+  const finalPrice  = basePrice + addOnsTotal;
 
-  // Calculate Addons total
-  const addOnsList: SelectedAddOn[] = Object.entries(selectedAddOns).map(([id, qty]) => {
-    const found = INITIAL_ADDONS.find((a) => a.id === id);
-    return {
-      id,
-      name: found?.name || 'Party Add-on',
-      price: found?.price || 0,
-      quantity: qty,
-    };
-  });
-
-  const addOnsTotal = addOnsList.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const finalTotal = Math.max(0, roomBasePrice + addOnsTotal);
+  const buildSelectedAddOnsList = (): SelectedAddOn[] =>
+    availableAddOns
+      .filter(a => selectedAddOns.has(a.id))
+      .map(a => ({
+        id: a.id,
+        name: a.name,
+        price: a.price,
+        quantity: selectedAddOns.get(a.id) || 1,
+      }));
 
   const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) {
-      onNavigateAuth();
-      return;
-    }
-
-    if (!eventName.trim()) {
-      setError('Please provide a party or event name (e.g. Maya’s 21st Birthday, Graduation Afterparty)');
-      return;
-    }
+    if (!currentUser) { onNavigateAuth(); return; }
+    if (!hostName.trim()) { setError('Please provide your name.'); return; }
+    if (!phone.trim())    { setError('Please provide a contact phone number.'); return; }
 
     setLoading(true);
     setError('');
-
     const shareCode = `PARTY-${Math.floor(1000 + Math.random() * 9000)}`;
+    const addOnsList = buildSelectedAddOnsList();
 
     const newBookingData: Omit<Booking, 'id'> = {
-      userId: currentUser.uid,
-      userEmail: currentUser.email || 'guest@celebrato.app',
-      userName: currentUser.displayName || profile?.displayName || 'Party Host',
-      userPhone: phone,
-      eventName: eventName.trim(),
-      roomId: room.id,
-      roomName: room.name,
-      roomImage: room.pictures[0],
+      userId:       currentUser.uid,
+      userEmail:    currentUser.email || 'guest@celebrato.app',
+      userName:     hostName.trim(),
+      userPhone:    phone.trim(),
+      eventName:    hostName.trim(),
+      roomId:       room.id,
+      roomName:     room.name,
+      roomImage:    room.pictures[0],
       date,
-      timeSlot,
-      durationHours: selectedHours,
-      guestsCount,
-      basePrice: roomBasePrice,
+      timeSlot:     `${startTime} - ${endTime}`,
+      durationHours,
+      guestsCount:  0,
+      basePrice,
       addOnsTotal,
-      discount: 0,
-      finalPrice: finalTotal,
-      addOns: addOnsList,
-      status: 'confirmed',
-      notes,
+      discount:     0,
+      finalPrice,
+      addOns:       addOnsList,
+      status:       'confirmed',
+      notes:        '',
       shareCode,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt:    new Date().toISOString(),
+      updatedAt:    new Date().toISOString(),
     };
 
     try {
       const bookingId = await createBooking(newBookingData);
       const completeBooking: Booking = { ...newBookingData, id: bookingId };
-
       setCreatedBooking(completeBooking);
       onBookingSuccess(completeBooking);
+
+      const whMessage = encodeURIComponent(
+        `New booking:\nName: ${hostName}\nPhone: ${phone}\nRoom: ${room.name}\nDate: ${date}\nTime: ${startTime}-${endTime}\nAdd-Ons: ${addOnsList.map(a => a.name).join(', ') || 'None'}\nTotal: ₹${finalPrice}\nShare Code: ${shareCode}`
+      );
+      window.open(`https://wa.me/?text=${whMessage}`, '_blank');
 
       confetti({
         particleCount: 140,
@@ -176,101 +152,66 @@ export const BookingPage: React.FC<BookingPageProps> = ({
   };
 
   return (
-    <div id="booking-page" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      
-      {/* Top Breadcrumb Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#383838] pb-6">
-        <button
-          id="booking-back-to-room-btn"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 hover:text-white transition group w-fit"
-        >
-          <div className="p-2 rounded-xl bg-[#282828] border border-[#383838] group-hover:bg-[#323232] group-hover:border-amber-500/40 transition">
-            <ArrowLeft className="w-4 h-4 text-amber-400" />
-          </div>
-          <span>Back to {room.name}</span>
-        </button>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#282828] border border-[#383838] text-xs text-gray-300">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Reserving: <strong className="text-white">{room.name}</strong></span>
-          </div>
-          <span className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold">
-            ${room.pricePerHour}/hr base
-          </span>
+    <div id="booking-page" className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <button
+        id="booking-back-to-room-btn"
+        onClick={onBack}
+        className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 hover:text-white transition group w-fit mb-4"
+      >
+        <div className="p-2 rounded-xl bg-[#282828] border border-[#383838] group-hover:bg-[#323232] group-hover:border-amber-500/40 transition">
+          <ArrowLeft className="w-4 h-4 text-amber-400" />
         </div>
-      </div>
+        <span>Back to {room.name}</span>
+      </button>
 
       {createdBooking ? (
-        /* CONFIRMATION SUCCESS VIEW */
-        <div id="booking-success-view" className="max-w-3xl mx-auto p-8 sm:p-12 rounded-3xl bg-[#282828] border border-[#383838] shadow-2xl text-center space-y-8">
+        /* ── Success View ── */
+        <div id="booking-success-view" className="p-8 rounded-3xl bg-[#282828] border border-[#383838] shadow-2xl text-center space-y-8">
           <div className="w-20 h-20 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border-2 border-emerald-500/40">
             <CheckCircle2 className="w-12 h-12" />
           </div>
-
           <div className="space-y-2">
-            <span className="px-3.5 py-1.5 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold uppercase tracking-wider">
-              Booking Confirmed #{createdBooking.id.substring(0, 8)}
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white font-outfit">
-              {createdBooking.eventName}
-            </h2>
+            <h2 className="text-3xl font-black text-white font-outfit">Booking Confirmed</h2>
             <p className="text-sm text-gray-300">
-              Reserved for <strong className="text-white">{createdBooking.date}</strong> ({createdBooking.timeSlot}) in <strong className="text-amber-400">{room.name}</strong>
+              Room <strong className="text-amber-400">{room.name}</strong> reserved for{' '}
+              <strong className="text-white">{createdBooking.date}</strong> at{' '}
+              <strong className="text-white">{createdBooking.timeSlot}</strong>
             </p>
           </div>
-
-          {/* Share Code Card for Friends & Media Vault */}
+          {createdBooking.addOns.length > 0 && (
+            <div className="p-4 rounded-2xl bg-[#202020] border border-[#383838] text-left space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Add-Ons Included</p>
+              {createdBooking.addOns.map(a => (
+                <div key={a.id} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-300">{a.name}</span>
+                  <span className="text-amber-400 font-bold">₹{a.price}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="p-6 rounded-2xl bg-[#202020] border border-[#383838] text-left space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                Collaborative Event Media Vault Share Code
-              </span>
-              <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">
-                Party Squad Access
-              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Share Code</span>
             </div>
-
             <div className="flex items-center justify-between p-3.5 bg-[#282828] rounded-xl border border-[#3e3e3e]">
-              <span className="text-2xl font-mono font-black text-amber-400 tracking-wider">
-                {createdBooking.shareCode}
-              </span>
+              <span className="text-2xl font-mono font-black text-amber-400 tracking-wider">{createdBooking.shareCode}</span>
               <button
                 id="copy-party-code-btn"
-                onClick={() => {
-                  navigator.clipboard.writeText(createdBooking.shareCode);
-                  alert(`Party Share Code ${createdBooking.shareCode} copied to clipboard! Share it with all your guests so they can upload event photos & videos into your vault.`);
-                }}
+                onClick={() => { navigator.clipboard.writeText(createdBooking.shareCode); alert(`Party Share Code ${createdBooking.shareCode} copied!`); }}
                 className="px-4 py-2 rounded-xl bg-[#383838] hover:bg-[#424242] text-xs font-bold text-white transition flex items-center gap-2 active:scale-95"
               >
-                <Share2 className="w-4 h-4 text-amber-400" />
-                Copy Code
+                <Share2 className="w-4 h-4 text-amber-400" /> Copy Code
               </button>
             </div>
-
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Send this code to your party guests. Anyone can enter it in the <strong>Event Media Vault</strong> to drop photos, video clips, and cheers into your shared album in real-time.
-            </p>
           </div>
-
-          {/* Reward Points Banner */}
-          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-sm font-bold">
-            <Coins className="w-4 h-4 text-amber-400" />
-            <span>+{createdBooking.pointsEarned} Loyalty Points added to your account!</span>
-          </div>
-
-          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <button
               id="success-open-vault-btn"
               onClick={() => onNavigateVault(createdBooking.id)}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-sm transition shadow-lg shadow-rose-500/25 flex items-center justify-center gap-2 active:scale-95"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-sm transition shadow-lg flex items-center justify-center gap-2 active:scale-95"
             >
-              <FolderLock className="w-4 h-4" />
-              <span>Open Event Media Vault</span>
+              <FolderLock className="w-4 h-4" /> Open Event Media Vault
             </button>
-
             <button
               id="success-browse-more-btn"
               onClick={onBack}
@@ -281,445 +222,190 @@ export const BookingPage: React.FC<BookingPageProps> = ({
           </div>
         </div>
       ) : (
-        /* DEDICATED BOOKING FORM */
-        <form onSubmit={handleConfirmBooking} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Main Booking Configuration (Left 2 cols) */}
-          <div className="lg:col-span-2 space-y-8">
-            
-            {/* Header / Intro */}
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block mb-1">
-                Step-by-Step Reservation
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-black text-white font-outfit">
-                Customize Your Celebration
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-400 mt-1">
-                Configure your hourly package, add party enhancers (balloons, lasers, DJ gear), and redeem host rewards.
-              </p>
-            </div>
+        /* ── Booking Form ── */
+        <form onSubmit={handleConfirmBooking} className="space-y-6">
+          {error && (
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">{error}</div>
+          )}
 
-            {error && (
-              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-                {error}
-              </div>
-            )}
-
-            {/* STEP 1: HOURLY CELEBRATION PACKAGES SELECTION */}
-            <div className="p-6 sm:p-7 rounded-3xl bg-[#282828] border border-[#383838] space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-white font-outfit flex items-center gap-2">
-                  <PackageCheck className="w-5 h-5 text-amber-400" />
-                  1. Select Hourly Celebration Package
-                </h3>
-                <span className="text-xs text-amber-400 font-semibold">
-                  {selectedHours} Hours Selected
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {packages.map((pkg) => {
-                  const isSelected = selectedHours === pkg.hours;
-
-                  return (
-                    <div
-                      key={pkg.id}
-                      onClick={() => setSelectedHours(pkg.hours)}
-                      className={`p-4 rounded-2xl border transition cursor-pointer flex flex-col justify-between ${
-                        isSelected
-                          ? 'bg-[#333333] border-amber-500 shadow-md ring-1 ring-amber-500/40'
-                          : 'bg-[#202020] border-[#383838] hover:border-[#4a4a4a]'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-1 mb-1">
-                          <span className="text-xs font-bold text-white">
-                            {pkg.hours} Hours
-                          </span>
-                          {pkg.popular && (
-                            <span className="px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[9px] font-black">
-                              POPULAR
-                            </span>
-                          )}
-                          {!pkg.popular && pkg.discountPercent > 0 && (
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-bold">
-                              -{pkg.discountPercent}%
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xl font-black text-white font-outfit">
-                          ${pkg.totalPrice}
-                        </div>
-                        <div className="text-[11px] text-gray-400">
-                          ${pkg.effectiveHourlyRate}/hr
-                        </div>
-                      </div>
-
-                      <div className="mt-3 pt-2 border-t border-[#333333] flex items-center justify-between text-[10px] text-gray-400 font-semibold">
-                        <span>{pkg.discountPercent > 0 ? `Save ${pkg.discountPercent}%` : 'Standard'}</span>
-                        <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-                          isSelected ? 'bg-amber-500 text-slate-950' : 'border border-[#444444]'
-                        }`}>
-                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Custom Hours Selector if user wants more than 6 */}
-              <div className="pt-2 flex items-center justify-between text-xs text-gray-400">
-                <span>Or select custom duration:</span>
-                <div className="flex items-center gap-1.5">
-                  {[2, 3, 4, 5, 6, 8].map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => setSelectedHours(h)}
-                      className={`px-3 py-1 rounded-xl text-xs font-bold border transition ${
-                        selectedHours === h
-                          ? 'bg-amber-500 text-slate-950 border-amber-500'
-                          : 'bg-[#202020] border-[#383838] text-gray-300 hover:border-gray-500'
-                      }`}
-                    >
-                      {h}h
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* STEP 2: DATE & TIME SLOT */}
-            <div className="p-6 sm:p-7 rounded-3xl bg-[#282828] border border-[#383838] space-y-4">
-              <h3 className="text-base font-bold text-white font-outfit flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-amber-400" />
-                2. Party Date & Time Window
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                    Celebration Date *
-                  </label>
-                  <input
-                    id="booking-date-field"
-                    type="date"
-                    required
-                    min={new Date().toISOString().split('T')[0]}
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                    Preferred Time Slot
-                  </label>
-                  <select
-                    id="booking-timeslot-field"
-                    value={timeSlot}
-                    onChange={(e) => setTimeSlot(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="15:00 - 18:00 (Afternoon Chill)">15:00 - 18:00 (Afternoon Chill)</option>
-                    <option value="19:00 - 22:00 (Prime Evening)">19:00 - 22:00 (Prime Evening)</option>
-                    <option value="21:00 - 01:00 (Late Night Rave)">21:00 - 01:00 (Late Night Rave)</option>
-                    <option value="23:00 - 03:00 (All-Night VIP)">23:00 - 03:00 (All-Night VIP)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* STEP 3: EVENT & HOST DETAILS */}
-            <div className="p-6 sm:p-7 rounded-3xl bg-[#282828] border border-[#383838] space-y-4">
-              <h3 className="text-base font-bold text-white font-outfit flex items-center gap-2">
-                <PartyPopper className="w-5 h-5 text-amber-400" />
-                3. Event Name & Squad Size
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                    Party Event Name *
-                  </label>
-                  <input
-                    id="booking-event-name-field"
-                    type="text"
-                    required
-                    placeholder="e.g. Liam's 21st Birthday Bash"
-                    value={eventName}
-                    onChange={(e) => setEventName(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                    Host Phone Number
-                  </label>
-                  <input
-                    id="booking-phone-field"
-                    type="tel"
-                    placeholder="+1 (555) 321-9876"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              {/* Guest Count Slider */}
+          {/* Your Details */}
+          <div className="p-6 rounded-3xl bg-[#282828] border border-[#383838]">
+            <h3 className="text-base font-bold text-white font-outfit flex items-center gap-2 mb-4">
+              <Calendar className="w-4 h-4 text-amber-400" /> Your Details
+            </h3>
+            <div className="grid grid-cols-1 gap-4">
               <div>
-                <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider text-gray-400">
-                    Expected Guests
-                  </span>
-                  <span className="font-bold text-amber-400">
-                    {guestsCount} Guests (Room capacity: {room.capacity})
-                  </span>
-                </div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Name *</label>
                 <input
-                  id="booking-guests-range"
-                  type="range"
-                  min={5}
-                  max={room.capacity}
-                  value={guestsCount}
-                  onChange={(e) => setGuestsCount(Number(e.target.value))}
-                  className="w-full accent-amber-500 bg-[#202020] h-2 rounded-lg cursor-pointer"
+                  id="booking-name-field" type="text" required
+                  placeholder="e.g. Alex Kumar"
+                  value={hostName} onChange={e => setHostName(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
                 />
               </div>
-
-              {/* Notes */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                  Special Instructions or Music Vibe
-                </label>
-                <textarea
-                  id="booking-notes-field"
-                  rows={2}
-                  placeholder="e.g. Gold balloon themes, specific DJ connection cables needed, birthday banner on arrival..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[#202020] border border-[#383838] rounded-2xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Phone *</label>
+                <input
+                  id="booking-phone-field" type="tel" required
+                  placeholder="+91 98765 43210"
+                  value={phone} onChange={e => setPhone(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Date *</label>
+                <input
+                  id="booking-date-field" type="date" required
+                  min={new Date().toISOString().split('T')[0]}
+                  value={date} onChange={e => setDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Start Time *</label>
+                  <input
+                    id="booking-start-time-field" type="time" required
+                    value={startTime} onChange={e => setStartTime(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">End Time *</label>
+                  <input
+                    id="booking-end-time-field" type="time" required
+                    value={endTime} onChange={e => setEndTime(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#202020] border border-[#383838] rounded-2xl text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
               </div>
             </div>
+          </div>
 
-            {/* STEP 4: PARTY ADD-ONS & ENHANCEMENTS */}
-            <div className="p-6 sm:p-7 rounded-3xl bg-[#282828] border border-[#383838] space-y-4">
-              <div className="flex items-center justify-between">
+          {/* Add-Ons Section */}
+          {availableAddOns.length > 0 && (
+            <div className="rounded-3xl bg-[#282828] border border-[#383838] overflow-hidden">
+              <div className="px-6 pt-5 pb-4 border-b border-[#383838] flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-white font-outfit flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-amber-400" />
-                    4. Party Add-Ons & Enhancements
+                    <ShoppingBag className="w-4 h-4 text-amber-400" /> Party Add-Ons
                   </h3>
-                  <p className="text-xs text-gray-400">
-                    Pre-order balloon garlands, lasers, DJ gear, sparkler cakes & instant polaroids.
-                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">Curated extras to elevate your celebration</p>
                 </div>
-                <span className="text-xs text-amber-400 font-bold">
-                  Add-ons: ${addOnsTotal}
-                </span>
+                {selectedAddOns.size > 0 && (
+                  <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-xs font-black text-amber-300">
+                    {selectedAddOns.size} added
+                  </span>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {INITIAL_ADDONS.map((addon) => {
-                  const isSelected = !!selectedAddOns[addon.id];
-                  const qty = selectedAddOns[addon.id] || 1;
-
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {availableAddOns.map(addon => {
+                  const isSelected = selectedAddOns.has(addon.id);
+                  const catColor = CATEGORY_COLORS[addon.category] || 'text-gray-400 bg-gray-500/10 border-gray-500/30';
                   return (
                     <div
                       key={addon.id}
-                      id={`addon-card-${addon.id}`}
-                      onClick={() => toggleAddOn(addon.id)}
-                      className={`p-4 rounded-2xl border transition cursor-pointer select-none flex flex-col justify-between ${
+                      className={`relative rounded-2xl border overflow-hidden transition-all duration-200 ${
                         isSelected
-                          ? 'bg-[#313131] border-amber-500/60 shadow-md ring-1 ring-amber-500/20'
-                          : 'bg-[#202020] border-[#383838] hover:border-[#4c4c4c]'
+                          ? 'border-amber-500/60 bg-amber-500/5 shadow-lg shadow-amber-500/10'
+                          : 'border-[#333333] bg-[#1e1e1e] hover:border-[#484848]'
                       }`}
                     >
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition ${
-                              isSelected ? 'bg-amber-500 text-slate-950 border-amber-500' : 'border-[#4c4c4c]'
-                            }`}>
-                              {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                            </div>
-                            <span className="text-xs font-bold text-white leading-tight">
-                              {addon.name}
-                            </span>
-                          </div>
-                          <span className="text-xs font-black text-amber-400 shrink-0 font-outfit">
-                            +${addon.price}
+                      {/* Image */}
+                      {addon.imageUrl && (
+                        <div className="relative h-32 w-full overflow-hidden">
+                          <img
+                            src={addon.imageUrl}
+                            alt={addon.name}
+                            className="w-full h-full object-cover"
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#1e1e1e] via-transparent to-transparent" />
+                          {/* Category badge */}
+                          <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold border ${catColor} capitalize`}>
+                            {addon.category}
                           </span>
-                        </div>
-
-                        <p className="text-[11px] text-gray-400 mt-2 line-clamp-2 leading-relaxed">
-                          {addon.description}
-                        </p>
-                      </div>
-
-                      {isSelected && (
-                        <div 
-                          className="mt-3 pt-2.5 border-t border-[#3e3e3e] flex items-center justify-between"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <span className="text-[10px] uppercase font-bold text-gray-400">Quantity:</span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => updateAddOnQty(addon.id, -1)}
-                              className="w-6 h-6 rounded-lg bg-[#3e3e3e] hover:bg-[#4a4a4a] text-white flex items-center justify-center text-xs transition"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="text-xs font-bold text-white w-5 text-center">{qty}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateAddOnQty(addon.id, 1)}
-                              className="w-6 h-6 rounded-lg bg-[#3e3e3e] hover:bg-[#4a4a4a] text-white flex items-center justify-center text-xs transition"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
+                          {/* Selected checkmark */}
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-md">
+                              <CheckCircle2 className="w-4 h-4 text-slate-950" />
+                            </div>
+                          )}
                         </div>
                       )}
+
+                      {/* Content */}
+                      <div className="p-3.5 space-y-2">
+                        {!addon.imageUrl && (
+                          <div className="flex items-start justify-between gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${catColor} capitalize`}>
+                              {addon.category}
+                            </span>
+                            {isSelected && <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />}
+                          </div>
+                        )}
+                        <p className="text-sm font-bold text-white leading-snug">{addon.name}</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-2">{addon.description}</p>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="flex items-center gap-1 text-amber-400 font-black text-base">
+                            <Tag className="w-3.5 h-3.5" />
+                            ₹{addon.price}
+                          </div>
+                          <button
+                            type="button"
+                            id={`addon-toggle-${addon.id}`}
+                            onClick={() => toggleAddOn(addon)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                              isSelected
+                                ? 'bg-amber-500/20 border border-amber-500/50 text-amber-300 hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-300'
+                                : 'bg-[#323232] border border-[#484848] text-gray-200 hover:bg-amber-500/20 hover:border-amber-500/40 hover:text-amber-300'
+                            }`}
+                          >
+                            {isSelected ? (
+                              <><Minus className="w-3 h-3" /> Remove</>
+                            ) : (
+                              <><Plus className="w-3 h-3" /> Add</>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
+          )}
 
-            {/* STEP 5: EVENT COLLABORATION & VAULT PREVIEW */}
-            <div className="p-6 rounded-3xl bg-[#282828] border border-[#383838] flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                  <Gift className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Collaborative Event Media Vault Included
-                  </h4>
-                  <p className="text-xs text-gray-400">
-                    A private cloud vault is automatically provisioned for you and your guests to share photos & HD videos.
-                  </p>
-                </div>
-              </div>
-
-              <div className="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold shrink-0">
-                ✓ Included Free
-              </div>
+          {/* Price Summary */}
+          <div className="p-5 rounded-2xl bg-[#252525] border border-[#383838] space-y-2">
+            <div className="flex items-center justify-between text-sm text-gray-400">
+              <span>Room ({durationHours > 0 ? `${durationHours.toFixed(1)}h` : 'base'}) × ₹{room.pricePerHour}/hr</span>
+              <span className="text-white font-semibold">₹{basePrice.toFixed(0)}</span>
             </div>
-
-          </div>
-
-          {/* RIGHT COLUMN: STICKY RECEIPT & SUBMISSION */}
-          <div className="space-y-6">
-            <div className="sticky top-24 p-6 sm:p-8 rounded-3xl bg-[#282828] border border-[#383838] shadow-2xl space-y-6">
-              
-              {/* Room Card Thumbnail */}
-              <div className="flex items-center gap-3 pb-4 border-b border-[#383838]">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-[#202020] shrink-0 border border-[#383838]">
-                  <img src={room.pictures[0]} alt={room.name} className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-white font-outfit leading-snug">
-                    {room.name}
-                  </h4>
-                  <p className="text-xs text-amber-400 font-semibold mt-0.5">
-                    {selectedHours} Hours Celebration Package
-                  </p>
-                  <p className="text-[11px] text-gray-400">
-                    Max capacity: {room.capacity} Guests
-                  </p>
-                </div>
+            {addOnsTotal > 0 && (
+              <div className="flex items-center justify-between text-sm text-gray-400">
+                <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-400" /> Add-Ons ({selectedAddOns.size})</span>
+                <span className="text-amber-400 font-semibold">+ ₹{addOnsTotal}</span>
               </div>
-
-              {/* Breakdown */}
-              <div className="space-y-2.5 text-xs text-gray-300">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">
-                    {matchedPackage?.name || `${selectedHours}h Celebration`} ({selectedHours} hrs):
-                  </span>
-                  <span className="font-semibold text-white">${roomBasePrice}</span>
-                </div>
-
-                {discountPercent > 0 && (
-                  <div className="flex justify-between text-emerald-400 text-[11px]">
-                    <span>Package Bundle Savings ({discountPercent}%):</span>
-                    <span>-${standardPrice - roomBasePrice}</span>
-                  </div>
-                )}
-
-                {addOnsTotal > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Party Add-Ons ({addOnsList.length} items):</span>
-                    <span className="font-semibold text-white">+${addOnsTotal}</span>
-                  </div>
-                )}
-
-                <div className="pt-3 border-t border-[#383838] flex items-baseline justify-between">
-                  <span className="text-sm font-bold text-white">Total Booking Price:</span>
-                  <span className="text-3xl font-black text-amber-400 font-outfit">
-                    ${finalTotal}
-                  </span>
-                </div>
-
-                <div className="text-right text-[11px] text-emerald-400 font-semibold flex items-center justify-end gap-1 pt-1">
-                  <span>Guaranteed best package pricing</span>
-                </div>
-              </div>
-
-              {/* Guest / Auth Status */}
-              {!currentUser && (
-                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold">Host Account Recommended</p>
-                    <p className="text-[11px] text-gray-300 mt-0.5">
-                      Sign in to access your collaborative Event Media Vault and manage reservations!
-                    </p>
-                    <button
-                      type="button"
-                      onClick={onNavigateAuth}
-                      className="mt-2 text-xs font-bold underline text-amber-400 hover:text-amber-300"
-                    >
-                      Sign In or Register Host Account
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit CTA */}
-              <button
-                id="booking-confirm-submit-btn"
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-black text-sm tracking-wide transition shadow-xl shadow-amber-500/25 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  'Confirming Party Reservation...'
-                ) : !currentUser ? (
-                  'Sign In & Confirm Booking'
-                ) : (
-                  `Confirm Reservation • $${finalTotal}`
-                )}
-              </button>
-
-              <div className="text-center text-[11px] text-gray-400 flex items-center justify-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Instant Confirmation & Real-time Firestore Sync</span>
-              </div>
+            )}
+            <div className="border-t border-[#383838] pt-2 flex items-center justify-between">
+              <span className="text-sm font-bold text-white">Total</span>
+              <span className="text-lg font-black text-amber-400">₹{finalPrice.toFixed(0)}</span>
             </div>
           </div>
 
+          <button
+            id="booking-confirm-submit-btn"
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-black text-sm tracking-wide transition shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98]"
+          >
+            {loading ? 'Confirming Booking...' : `Confirm Booking • ₹${finalPrice.toFixed(0)}`}
+          </button>
         </form>
       )}
-
     </div>
   );
 };

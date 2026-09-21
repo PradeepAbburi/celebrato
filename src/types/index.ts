@@ -20,6 +20,7 @@ export interface AddOnItem {
   category: 'balloons' | 'music' | 'lighting' | 'food' | 'entertainment';
   price: number;
   icon: string;
+  imageUrl?: string;
   description: string;
   defaultSelected?: boolean;
 }
@@ -61,7 +62,8 @@ export interface Booking {
 
 export interface VaultMedia {
   id: string;
-  bookingId: string;
+  bookingId?: string;
+  folderId?: string;
   eventName: string;
   mediaType: 'image' | 'video';
   url: string;
@@ -73,4 +75,31 @@ export interface VaultMedia {
   createdAt: string;
 }
 
+export interface EventFolder {
+  id: string;
+  userId?: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  description: string;
+  coverImage?: string;
+  shareCode?: string;
+  mediaCount?: number;
+  createdAt: string;
+}
+
 export type DashboardTab = 'bookings' | 'vault';
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  eventType?: string;
+  eventDate?: string;
+  guestsEstimated?: number;
+  message: string;
+  status: 'new' | 'contacted' | 'resolved';
+  createdAt: string;
+}
+
+export type AppView = 'home' | 'room-detail' | 'booking' | 'dashboard' | 'admin' | 'auth' | 'about' | 'contact' | 'mem-vault' | 'profile';

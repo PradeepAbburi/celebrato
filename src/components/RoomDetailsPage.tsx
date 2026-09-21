@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Room } from '../types';
-import { getRoomHourlyPackages, RoomPackage } from '../utils/pricingPackages';
+import { getRoomHourlyPackages } from '../utils/pricingPackages';
+
 import { 
   ArrowLeft, 
   Play, 
@@ -67,7 +68,7 @@ export const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({
     <div id="room-details-page" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       
       {/* Top Breadcrumb & Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#383838] pb-6">
+      <div className="flex items-center justify-between gap-4 border-b border-[#383838] pb-4">
         <button
           id="room-detail-back-btn"
           onClick={onBack}
@@ -76,7 +77,7 @@ export const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({
           <div className="p-2 rounded-xl bg-[#282828] border border-[#383838] group-hover:bg-[#323232] group-hover:border-amber-500/40 transition">
             <ArrowLeft className="w-4 h-4 text-amber-400" />
           </div>
-          <span>Back to Party Rooms Catalog</span>
+          <span className="hidden sm:inline">Back to Party Rooms Catalog</span>
         </button>
 
         <div className="flex items-center gap-3">
@@ -84,42 +85,19 @@ export const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             {room.theme}
           </span>
-          <div className="flex items-center gap-1.5 text-xs text-gray-300 bg-[#282828] px-3 py-1.5 rounded-full border border-[#383838]">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-300 bg-[#282828] px-3 py-1.5 rounded-full border border-[#383838]">
             <Users className="w-3.5 h-3.5 text-amber-400" />
             <span>Capacity: <strong className="text-white">{room.capacity} Guests</strong></span>
           </div>
         </div>
       </div>
 
-      {/* Hero Title & Short Summary */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl sm:text-5xl font-black text-white font-outfit tracking-tight">
-            {room.name}
-          </h1>
-          <p className="text-gray-300 text-sm sm:text-base max-w-3xl leading-relaxed">
-            {room.description}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <button
-            id="room-page-quick-book-btn"
-            onClick={() => onBook(room, currentSelectedPkg.hours)}
-            className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-black text-sm transition shadow-xl shadow-amber-500/20 active:scale-95 flex items-center gap-2"
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Book {currentSelectedPkg.name} • ${currentSelectedPkg.totalPrice}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* UNIFIED MEDIA CAROUSEL: Photos and Videos in ONE Carousel */}
+      {/* MEDIA CAROUSEL - Placed right under back button */}
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-amber-400 font-mono">
-              Unified Room Carousel
+              Room Gallery
             </span>
             <span className="text-xs text-gray-400">
               ({room.pictures.length} Photos {room.videoUrl ? '+ 1 HD Video Tour' : ''})
@@ -229,143 +207,35 @@ export const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({
         </div>
       </section>
 
-      {/* HOURLY CELEBRATION PACKAGES SECTION */}
-      <section id="room-packages-section" className="space-y-6 pt-4">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#383838] pb-4">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block mb-1">
-              Curated Pricing Tiers
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white font-outfit">
-              Celebration Packages ({room.name})
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-400 mt-1">
-              Select your preferred duration. Longer celebration packages include automatic bundle savings and priority gear setup!
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-gray-400 bg-[#282828] px-4 py-2 rounded-xl border border-[#383838]">
-            <Clock className="w-4 h-4 text-amber-400" />
-            <span>Standard Hourly Rate: <strong className="text-white">${room.pricePerHour}/hr</strong></span>
+      {/* Room Title, Description & Quick Book - Now BELOW media */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl sm:text-5xl font-black text-white font-outfit tracking-tight">
+            {room.name}
+          </h1>
+          <p className="text-gray-300 text-sm sm:text-base max-w-3xl leading-relaxed">
+            {room.description}
+          </p>
+          <div className="flex sm:hidden items-center gap-1.5 text-xs text-gray-300 bg-[#282828] px-3 py-1.5 rounded-full border border-[#383838] w-fit">
+            <Users className="w-3.5 h-3.5 text-amber-400" />
+            <span>Capacity: <strong className="text-white">{room.capacity} Guests</strong></span>
           </div>
         </div>
 
-        {/* 4 Hourly Packages Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {packages.map((pkg) => {
-            const isSelected = selectedPkgId === pkg.id;
-
-            return (
-              <div
-                key={pkg.id}
-                id={`package-card-${pkg.id}`}
-                onClick={() => setSelectedPkgId(pkg.id)}
-                className={`relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 border cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#2e2e2e] border-amber-500 shadow-xl shadow-amber-500/10 ring-1 ring-amber-500/50 -translate-y-1'
-                    : 'bg-[#282828] border-[#383838] hover:border-[#4d4d4d] hover:bg-[#2c2c2c]'
-                }`}
-              >
-                {/* Popular or Top Badge */}
-                {pkg.badge && (
-                  <div className="absolute -top-3 left-6">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg ${
-                      pkg.popular
-                        ? 'bg-amber-500 text-slate-950 font-black'
-                        : pkg.discountPercent > 0
-                        ? 'bg-emerald-500 text-slate-950 font-bold'
-                        : 'bg-[#383838] text-gray-200'
-                    }`}>
-                      {pkg.badge}
-                    </span>
-                  </div>
-                )}
-
-                <div className="space-y-4 pt-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-lg font-black text-white font-outfit">
-                        {pkg.name}
-                      </h3>
-                      <div className="text-xs text-amber-400 font-semibold mt-0.5">
-                        {pkg.hours} Hours Celebration
-                      </div>
-                    </div>
-
-                    {pkg.discountPercent > 0 && (
-                      <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
-                        Save {pkg.discountPercent}%
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-gray-400 leading-relaxed min-h-[36px]">
-                    {pkg.tagline}
-                  </p>
-
-                  {/* Pricing Box */}
-                  <div className="p-4 rounded-2xl bg-[#202020] border border-[#383838] space-y-1.5">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-black text-white font-outfit">
-                        ${pkg.totalPrice}
-                      </span>
-                      {pkg.savings > 0 && (
-                        <span className="text-xs text-gray-500 line-through">
-                          ${pkg.standardPrice}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="text-[11px] text-gray-400 flex items-center justify-between">
-                      <span>Effective rate:</span>
-                      <strong className="text-gray-200">${pkg.effectiveHourlyRate}/hr</strong>
-                    </div>
-
-                    {pkg.savings > 0 && (
-                      <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 pt-1 border-t border-[#333333]">
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Includes ${pkg.savings} package discount</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Perks Checklist */}
-                  <div className="space-y-2 pt-2">
-                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block">
-                      Package Inclusions:
-                    </span>
-                    {pkg.perks.map((perk, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-gray-300">
-                        <Check className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                        <span className="leading-tight">{perk}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Direct Book CTA */}
-                <div className="pt-6">
-                  <button
-                    id={`book-pkg-btn-${pkg.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onBook(room, pkg.hours);
-                    }}
-                    className={`w-full py-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 active:scale-95 ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black shadow-lg shadow-amber-500/20'
-                        : 'bg-[#363636] hover:bg-[#404040] text-white border border-[#484848]'
-                    }`}
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>Book {pkg.hours}h Package</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <button
+            id="room-page-quick-book-btn"
+            onClick={() => onBook(room, currentSelectedPkg.hours)}
+            className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-black text-sm transition shadow-xl shadow-amber-500/20 active:scale-95 flex items-center gap-2"
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Book {currentSelectedPkg.name} • ${currentSelectedPkg.totalPrice}</span>
+          </button>
         </div>
-      </section>
+      </div>
+
+
+
 
       {/* ROOM SPECIFICATIONS & INCLUDED AMENITIES */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4">
@@ -449,7 +319,8 @@ export const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-black text-sm tracking-wide transition shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 active:scale-95"
           >
             <Calendar className="w-5 h-5" />
-            <span>Proceed to Booking ({currentSelectedPkg.hours}h)</span>
+            <span className="hidden sm:inline">Proceed to Booking ({currentSelectedPkg.hours}h)</span>
+            <span className="sm:hidden">Book Now ({currentSelectedPkg.hours}h)</span>
           </button>
         </div>
       </section>

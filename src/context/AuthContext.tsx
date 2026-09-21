@@ -22,6 +22,7 @@ export interface UserProfileData {
   photoURL?: string;
   isAdmin: boolean;
   phone?: string;
+  points?: number;
 }
 
 interface AuthContextType {
@@ -159,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInDemoGuest = async (asAdmin: boolean = false) => {
     const email = asAdmin ? ADMIN_EMAIL : `guest_${Math.floor(Math.random() * 8999 + 1000)}@partyhub.test`;
     const dummyUid = asAdmin ? 'admin_partyhouse_root' : `guest_${Date.now()}`;
-    const name = asAdmin ? 'PartyHouse Admin' : 'VIP Party Guest';
+    const name = asAdmin ? 'PartyHouse Admin' : 'Party Guest';
 
     const mockProfile: UserProfileData = {
       uid: dummyUid,
