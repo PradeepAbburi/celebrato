@@ -1,26 +1,28 @@
 import React, { useState } from 'react';
 import { Room } from '../types';
-
-import { Users, Sparkles, Play, Eye, Calendar, ArrowRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Users, Sparkles, Play, Eye, ArrowRight, Edit3, Trash2 } from 'lucide-react';
 
 interface RoomCardProps {
   room: Room;
   onPreview: (room: Room) => void;
   onBook: (room: Room) => void;
+  onEdit?: (room: Room) => void;
+  onDelete?: (roomId: string) => void;
 }
 
-export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) => {
+export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook, onEdit, onDelete }) => {
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
-  
+  const { isAdmin } = useAuth();
 
   return (
     <div 
       id={`room-card-${room.id}`}
-      className="group relative bg-[#282828] border border-[#383838] hover:border-[#4f4f4f] rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-black/50 flex flex-col"
+      className="group relative bg-[#202020] border border-[#383838] hover:border-[#505050] rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-black/70 flex flex-col h-full justify-between"
     >
       {/* Media Showcase */}
       <div 
-        className="relative h-64 w-full overflow-hidden bg-[#1a1a1a] cursor-pointer"
+        className="relative h-64 sm:h-72 w-full overflow-hidden bg-[#181818] cursor-pointer shrink-0"
         onClick={() => onPreview(room)}
       >
         <img 
@@ -29,7 +31,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) =
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#282828] via-transparent to-black/50 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#202020] via-transparent to-black/50 pointer-events-none" />
 
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-auto">
@@ -38,19 +40,52 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) =
             {room.theme}
           </span>
 
-          {room.videoUrl && (
-            <button
-              id={`room-video-badge-${room.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onPreview(room);
-              }}
-              className="px-2.5 py-1 rounded-full bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1 shadow-lg shadow-rose-500/30 transition hover:scale-105 active:scale-95"
-            >
-              <Play className="w-3 h-3 fill-current" />
-              <span>Video Tour</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {isAdmin && (
+              <div className="flex items-center gap-1 bg-[#202020]/90 p-1 rounded-xl border border-[#383838] shadow-lg">
+                {onEdit && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(room);
+                    }}
+                    title="Edit Room Details"
+                    className="p-1.5 text-amber-400 hover:text-white hover:bg-[#323232] rounded-lg transition"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete party room "${room.name}"?`)) {
+                        onDelete(room.id);
+                      }
+                    }}
+                    title="Delete Room"
+                    className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {room.videoUrl && (
+              <button
+                id={`room-video-badge-${room.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPreview(room);
+                }}
+                className="px-2.5 py-1 rounded-full bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1 shadow-lg shadow-rose-500/30 transition hover:scale-105 active:scale-95"
+              >
+                <Play className="w-3 h-3 fill-current" />
+                <span>Video Tour</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Multiple Photo Dots */}
@@ -83,7 +118,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) =
             >
               {room.name}
             </h3>
-            <div className="flex items-center gap-1 text-gray-300 text-xs font-medium shrink-0 bg-[#323232] px-2.5 py-1 rounded-lg border border-[#404040]">
+            <div className="flex items-center gap-1 text-gray-300 text-xs font-medium shrink-0 bg-[#282828] px-2.5 py-1 rounded-lg border border-[#383838]">
               <Users className="w-3.5 h-3.5 text-gray-400" />
               <span>Up to {room.capacity}</span>
             </div>
@@ -93,14 +128,12 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) =
             {room.description}
           </p>
 
-
-
           {/* Key Amenities */}
           <div className="flex flex-wrap gap-1.5 mb-5">
             {room.amenities.slice(0, 3).map((amenity, i) => (
               <span 
                 key={i} 
-                className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-[#303030] text-gray-300 border border-[#3e3e3e]"
+                className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-[#282828] text-gray-300 border border-[#383838]"
               >
                 {amenity}
               </span>
@@ -117,10 +150,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) =
         <div className="pt-4 border-t border-[#383838] flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-baseline gap-1">
-              <span className="text-xl sm:text-2xl font-black text-white font-outfit">₹{room.pricePerHour}/hr</span>
+              <span className="text-xl sm:text-2xl font-black text-white font-outfit">₹{room.pricePerHour.toLocaleString('en-IN')}/hr</span>
             </div>
             <div className="text-[11px] text-amber-400 font-medium truncate">
-              ${room.pricePerHour}/hr rate
+              Min {room.minHours || 2} hours booking
             </div>
           </div>
 
@@ -128,8 +161,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onPreview, onBook }) =
             <button
               id={`room-details-page-btn-${room.id}`}
               onClick={() => onPreview(room)}
-              title="Open room details with video tour & packages"
-              className="px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-[#323232] hover:bg-[#3a3a3a] text-gray-200 hover:text-white border border-[#404040] transition text-xs font-bold flex items-center gap-1 active:scale-95"
+              title="Open room details with video tour & specs"
+              className="px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-[#282828] hover:bg-[#323232] text-gray-200 hover:text-white border border-[#383838] transition text-xs font-bold flex items-center gap-1 active:scale-95"
             >
               <Eye className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Details</span>

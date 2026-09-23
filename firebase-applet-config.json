@@ -6,5 +6,6 @@
   "databaseURL": "https://attendance-dash-default-rtdb.firebaseio.com",
   "storageBucket": "attendance-dash.firebasestorage.app",
   "messagingSenderId": "199677597256",
-  "measurementId": "G-1BQS8QZGRT"
+  "measurementId": "G-1BQS8QZGRT",
+  "firestoreDatabaseId": "ai-studio-celebratopartyro-7969d18d-d6b9-4ea1-a248-45cd3ee2c7cf"
 }

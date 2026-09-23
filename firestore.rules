@@ -6,11 +6,16 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    function isAdmin() {
+    function isKnownAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'dineshkrishnapradeep@gmail.com' ||
-        request.auth.token.email == 'admin@partyhouse.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        request.auth.token.email == 'admin@partyhouse.com'
+      );
+    }
+
+    function isAdmin() {
+      return isKnownAdmin() || (
+        isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
     
@@ -40,28 +45,34 @@ service cloud.firestore {
     // Party Rooms catalog - public read so guests and hosts can explore rooms, videos, and packages
     match /rooms/{roomId} {
       allow read: if true;
-      allow list: if true;
       allow write: if isAdmin();
     }
 
-    // Party Add-on packages and equipment
+    // Party Add-on packages and equipment - public read
     match /addons/{addonId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // Party Event Folders in MemVault - public read so guests can view party albums with code/link
+    match /event_folders/{folderId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
     }
 
     // Bookings
     match /bookings/{bookingId} {
       // User can read their own bookings, or admin can read all bookings
       allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isKnownAdmin());
       
       // Creating a booking requires being signed in and matching userId
       allow create: if isSignedIn() && (
         request.resource.data.userId == request.auth.uid || isAdmin()
       );
       
-      // Update booking: user can update their own pending booking notes or admin can update status/pricing
+      // Update booking: user can update their own booking or admin can update
       allow update: if isSignedIn() && (
         (resource.data.userId == request.auth.uid) || isAdmin()
       );

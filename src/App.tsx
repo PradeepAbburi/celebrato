@@ -13,7 +13,7 @@ import { BottomBar } from './components/BottomBar';
 import { MemVaultPage } from './components/MemVaultPage';
 import { ProfilePage } from './components/ProfilePage';
 import { Room, Booking, DashboardTab, AppView } from './types';
-import { subscribeRooms, ensureInitialRoomsSeeded } from './services/partyDataService';
+import { subscribeRooms, ensureInitialRoomsSeeded, deleteRoom } from './services/partyDataService';
 import { 
   Sparkles, 
   Calendar, 
@@ -28,7 +28,8 @@ import {
   PartyPopper,
   CheckCircle,
   Video as VideoIcon,
-  Clock
+  Clock,
+  Plus
 } from 'lucide-react';
 
 function AppContent() {
@@ -41,7 +42,7 @@ function AppContent() {
 
   // Selected room for dedicated RoomDetailsPage & BookingPage
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  const [selectedPackageDuration, setSelectedPackageDuration] = useState<number | null>(null);
+  const [selectedBookingDuration, setSelectedBookingDuration] = useState<number | null>(null);
   // Pending room/duration to resume booking after login
   const [pendingBookRoom, setPendingBookRoom] = useState<Room | null>(null);
   const [pendingBookDuration, setPendingBookDuration] = useState<number | null>(null);
@@ -51,6 +52,12 @@ function AppContent() {
     const handleLocation = () => {
       const path = window.location.pathname;
       const hash = window.location.hash;
+      if (isAdmin) {
+        // While logged in as admin, user pages are completely isolated
+        setActiveView('admin');
+        window.history.replaceState(null, '', '/admin');
+        return;
+      }
       if (path.includes('/admin') || hash === '#admin') {
         setActiveView('admin');
       } else if (path.includes('/about') || hash === '#about') {
@@ -66,9 +73,21 @@ function AppContent() {
       window.removeEventListener('popstate', handleLocation);
       window.removeEventListener('hashchange', handleLocation);
     };
-  }, []);
+  }, [isAdmin]);
+
+  // Keep admin locked to admin view while admin session is active
+  useEffect(() => {
+    if (isAdmin && activeView !== 'admin') {
+      setActiveView('admin');
+      window.history.replaceState(null, '', '/admin');
+    }
+  }, [isAdmin, activeView]);
 
   const handleNavigateView = (view: AppView) => {
+    // If logged in as admin, user pages cannot be accessed without logging out first
+    if (isAdmin && view !== 'admin') {
+      return;
+    }
     setActiveView(view);
     if (view === 'admin') {
       window.history.pushState(null, '', '/admin');
@@ -127,25 +146,32 @@ function AppContent() {
       return;
     }
     setSelectedRoom(room);
-    setSelectedPackageDuration(initialDuration || null);
+    setSelectedBookingDuration(initialDuration || null);
     setActiveView('booking');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'admin'>('login');
 
-  const handleNavigateAuth = (mode: 'login' | 'signup' = 'login') => {
+  const handleNavigateAuth = (mode: 'login' | 'signup' | 'admin' = 'login') => {
+    if (isAdmin) {
+      return;
+    }
     setAuthMode(mode);
     setReturnViewAfterAuth(activeView);
     setActiveView('auth');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = (meta?: { isAdmin?: boolean }) => {
+    if (meta?.isAdmin) {
+      handleNavigateView('admin');
+      return;
+    }
     if (returnViewAfterAuth === 'booking' && pendingBookRoom) {
       // Restore the pending booking after login
       setSelectedRoom(pendingBookRoom);
-      setSelectedPackageDuration(pendingBookDuration);
+      setSelectedBookingDuration(pendingBookDuration);
       setPendingBookRoom(null);
       setPendingBookDuration(null);
       setActiveView('booking');
@@ -181,7 +207,7 @@ function AppContent() {
           <AdminPanel onNavigateHome={() => handleNavigateView('home')} />
         )}
 
-        {/* VIEW 2: DEDICATED SEPARATE ROOM DETAILS PAGE (with video tour, pictures gallery, specs, hourly packages) */}
+        {/* VIEW 2: DEDICATED SEPARATE ROOM DETAILS PAGE (with video tour, pictures gallery, specs) */}
         {activeView === 'room-detail' && selectedRoom && (
           <RoomDetailsPage
             room={selectedRoom}
@@ -190,11 +216,11 @@ function AppContent() {
           />
         )}
 
-        {/* VIEW 3: DEDICATED SEPARATE BOOKING PAGE (with hourly packages, add-ons, date & contact) */}
+        {/* VIEW 3: DEDICATED SEPARATE BOOKING PAGE (with hourly pricing, add-ons, date & contact) */}
         {activeView === 'booking' && selectedRoom && (
           <BookingPage
             room={selectedRoom}
-            initialHours={selectedPackageDuration || 3}
+            initialHours={selectedBookingDuration || 3}
             onBack={() => {
               if (selectedRoom) {
                 setActiveView('room-detail');
@@ -377,7 +403,7 @@ function AppContent() {
                     Explore Party Rooms
                   </h2>
                   <p className="text-xs text-gray-400 mt-1">
-                    Click "Details" on any room to open its dedicated page with video tour, sound specs, and hourly package discounts.
+                    Click "Details" on any room to open its dedicated page with video tour, sound specs, and instant booking.
                   </p>
                 </div>
 
@@ -419,6 +445,16 @@ function AppContent() {
                     <option value="price-desc">Highest Price / hr</option>
                     <option value="capacity">Largest Capacity</option>
                   </select>
+
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleNavigateView('admin')}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md transition shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Room</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -458,6 +494,17 @@ function AppContent() {
                       room={room}
                       onPreview={handlePreviewRoom}
                       onBook={(r) => handleBookRoom(r)}
+                      onEdit={(r) => {
+                        setSelectedRoom(r);
+                        setActiveView('room-detail');
+                      }}
+                      onDelete={async (id) => {
+                        try {
+                          await deleteRoom(id);
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -498,10 +545,10 @@ function AppContent() {
                       <PartyPopper className="w-5 h-5" />
                     </div>
                     <h4 className="text-base font-bold text-white font-outfit">
-                      2. Custom Add-Ons & Packages
+                      2. Flexible Hours & Add-Ons
                     </h4>
                     <p className="text-xs text-gray-400 leading-relaxed">
-                      Choose discounted 2h, 3h, 4h, or 6h packages, add luxury balloon arches, smoke machines, and DJ controllers with instant live cost breakdown.
+                      Select your preferred date, starting and ending hours, add luxury balloon arches, smoke machines, and DJ gear with live cost breakdown.
                     </p>
                   </div>
 
@@ -546,20 +593,12 @@ function AppContent() {
             >
               Contact Concierge
             </button>
-
-            <button
-              onClick={() => handleNavigateView('admin')}
-              className="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Admin Portal
-            </button>
           </div>
         </div>
       </footer>
 
-      {/* Mobile 4-Tab Bottom Bar: Explore, Bookings, Mem Vault, Profile - Hidden on Auth Page */}
-      {activeView !== 'auth' && (
+      {/* Mobile 4-Tab Bottom Bar - Hidden on Auth Page and in Admin View */}
+      {activeView !== 'auth' && activeView !== 'admin' && !isAdmin && (
         <BottomBar
           activeView={activeView}
           setActiveView={handleNavigateView}

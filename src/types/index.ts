@@ -19,7 +19,7 @@ export interface AddOnItem {
   name: string;
   category: 'balloons' | 'music' | 'lighting' | 'food' | 'entertainment';
   price: number;
-  icon: string;
+  icon?: string;
   imageUrl?: string;
   description: string;
   defaultSelected?: boolean;

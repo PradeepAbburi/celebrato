@@ -2,22 +2,26 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
+import firebaseConfigData from '../../firebase-applet-config.json';
 
-export const firebaseConfig = {
-  apiKey: "AIzaSyDGaYNMJYRjKySRMkAuA9PBkR65fK5iNew",
-  authDomain: "attendance-dash.firebaseapp.com",
-  databaseURL: "https://attendance-dash-default-rtdb.firebaseio.com",
-  projectId: "attendance-dash",
-  storageBucket: "attendance-dash.firebasestorage.app",
-  messagingSenderId: "199677597256",
-  appId: "1:199677597256:web:7ee8adc37f557001876a7d",
-  measurementId: "G-1BQS8QZGRT"
+export const firebaseConfig = firebaseConfigData as {
+  apiKey: string;
+  authDomain: string;
+  databaseURL?: string;
+  projectId: string;
+  storageBucket?: string;
+  messagingSenderId: string;
+  appId: string;
+  measurementId?: string;
+  firestoreDatabaseId?: string;
 };
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Initialize Firebase services
-export const db = getFirestore(app);
+// Initialize Firebase services with target Firestore database
+export const db = firebaseConfig.firestoreDatabaseId
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });

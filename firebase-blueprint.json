@@ -59,6 +59,7 @@
       "properties": {
         "id": { "type": "string" },
         "bookingId": { "type": "string", "maxLength": 128 },
+        "folderId": { "type": "string", "maxLength": 128 },
         "mediaType": { "type": "string", "enum": ["image", "video"] },
         "url": { "type": "string" },
         "title": { "type": "string", "maxLength": 150 },
@@ -68,7 +69,7 @@
         "likesCount": { "type": "number" },
         "createdAt": { "type": "string" }
       },
-      "required": ["bookingId", "mediaType", "url", "uploadedByUid"]
+      "required": ["mediaType", "url", "uploadedByUid"]
     },
     "User": {
       "title": "User Profile",
@@ -83,6 +84,54 @@
         "phone": { "type": "string", "maxLength": 30 }
       },
       "required": ["uid", "email"]
+    },
+    "AddOnItem": {
+      "title": "Party Add-On",
+      "description": "Party equipment, lighting, DJ packages and party add-ons",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 50 },
+        "price": { "type": "number" },
+        "icon": { "type": "string", "maxLength": 50 },
+        "description": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["name", "category", "price"]
+    },
+    "EventFolder": {
+      "title": "Event Media Folder",
+      "description": "Collaborative party media folder with invite code and event details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 30 },
+        "description": { "type": "string", "maxLength": 500 },
+        "coverImage": { "type": "string", "maxLength": 500 },
+        "shareCode": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "date"]
+    },
+    "ContactMessage": {
+      "title": "Contact Inquiry",
+      "description": "Inquiry form message submitted by guests or event planners",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "eventType": { "type": "string", "maxLength": 50 },
+        "eventDate": { "type": "string", "maxLength": 30 },
+        "guestsEstimated": { "type": "number" },
+        "message": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["new", "contacted", "resolved"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "email", "message"]
     }
   },
   "firestore": {
@@ -101,6 +150,18 @@
     "/vault_media/{mediaId}": {
       "schema": { "$ref": "VaultMedia" },
       "description": "Event media vault where guests and hosts upload party pictures and videos"
+    },
+    "/addons/{addonId}": {
+      "schema": { "$ref": "AddOnItem" },
+      "description": "Party equipment packages, neon lighting rigs, and DJ booth add-ons"
+    },
+    "/event_folders/{folderId}": {
+      "schema": { "$ref": "EventFolder" },
+      "description": "Party event albums and shared guest vaults"
+    },
+    "/contacts/{contactId}": {
+      "schema": { "$ref": "ContactMessage" },
+      "description": "Event inquiries and guest contact messages"
     }
   }
 }

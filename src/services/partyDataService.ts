@@ -226,6 +226,19 @@ export async function updateBookingStatus(bookingId: string, status: Booking['st
   }
 }
 
+// Update booking administrative notes (Admin)
+export async function updateBookingNotes(bookingId: string, notes: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'bookings', bookingId), {
+      notes,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `bookings/${bookingId}`);
+    throw error;
+  }
+}
+
 // Real-time Event Media Vault
 export function subscribeVaultMedia(bookingId: string | null, callback: (media: VaultMedia[]) => void): () => void {
   try {

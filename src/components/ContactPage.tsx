@@ -110,7 +110,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
             Plan Your Epic Party With Us.
           </h1>
           <p className="text-sm sm:text-base text-gray-300 leading-relaxed font-normal">
-            Have questions about room packages, custom DJ sound setups, outside catering, or booking multiple suites? Send us a message and our concierge will get back to you within 15 minutes.
+            Have questions about suite availability, custom DJ sound setups, outside catering, or booking multiple suites? Send us a message and our concierge will get back to you within 15 minutes.
           </p>
         </div>
       </div>

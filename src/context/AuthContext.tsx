@@ -14,6 +14,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 export const ADMIN_EMAIL = 'admin@partyhouse.com';
 export const ADMIN_PASSWORD = 'Parthouse@2004';
 export const BOOTSTRAP_ADMIN_EMAIL = 'admin@partyhouse.com';
+export const ADMIN_PASSCODES = ['celebrato2026', 'admin123', 'celebrato', '778899', 'parthouse2025'];
 
 export interface UserProfileData {
   uid: string;
@@ -30,12 +31,13 @@ interface AuthContextType {
   profile: UserProfileData | null;
   loading: boolean;
   isAdmin: boolean;
+  verifyAdminCode: (code: string) => { success: boolean; error?: string };
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<{ isAdmin: boolean }>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   signInDemoGuest: (asAdmin?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
-  toggleAdminMode: () => void;
+  toggleAdminMode: (override?: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,19 +46,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [manualAdminOverride, setManualAdminOverride] = useState(false);
+  
+  // Admin access is strictly locked and can ONLY be unlocked with secret admin code
+  const [manualAdminOverride, setManualAdminOverride] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('celebrato_admin_verified') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
-  const checkIsAdmin = (email?: string | null) => {
-    if (!email) return false;
-    const lower = email.toLowerCase();
-    return lower === ADMIN_EMAIL.toLowerCase() || lower === 'dineshkrishnapradeep@gmail.com';
+  const verifyAdminCode = (code: string): { success: boolean; error?: string } => {
+    // "without logout in user acc admin cant login"
+    if (currentUser) {
+      return {
+        success: false,
+        error: 'Active user account detected. You must sign out of your user account before logging in as Administrator.'
+      };
+    }
+    const trimmed = code.trim().toLowerCase();
+    const isValid = ADMIN_PASSCODES.some(c => c.toLowerCase() === trimmed);
+    if (isValid) {
+      setManualAdminOverride(true);
+      try {
+        sessionStorage.setItem('celebrato_admin_verified', 'true');
+      } catch {}
+      setProfile({
+        uid: 'celebrato_admin_root',
+        email: 'admin@partyhouse.com',
+        displayName: 'Venue Admin',
+        isAdmin: true,
+      });
+      return { success: true };
+    }
+    return { success: false, error: 'Access Denied: Invalid administrative code.' };
   };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
-        const isAdminUser = checkIsAdmin(user.email) || manualAdminOverride;
+        // Standard user login NEVER grants admin privileges automatically.
+        // Admin console is ONLY accessible if unlocked with secret admin code.
+        const isAdminUser = manualAdminOverride;
 
         try {
           const userDocRef = doc(db, 'users', user.uid);
@@ -69,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: user.email || '',
               displayName: user.displayName || data.displayName || (isAdminUser ? 'Venue Admin' : 'Party Host'),
               photoURL: user.photoURL || data.photoURL || '',
-              isAdmin: isAdminUser || !!data.isAdmin,
+              isAdmin: isAdminUser,
               phone: data.phone || '',
             });
           } else {
@@ -97,7 +129,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         }
       } else {
-        setProfile(null);
+        if (!manualAdminOverride) {
+          setProfile(null);
+        }
       }
       setLoading(false);
     });
@@ -106,6 +140,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [manualAdminOverride]);
 
   const signInWithGoogle = async () => {
+    // Cannot log into user account if admin session is active
+    if (manualAdminOverride) {
+      throw new Error('Administrator session is active. Please sign out of Admin Console first.');
+    }
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
@@ -115,64 +153,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithEmail = async (email: string, pass: string): Promise<{ isAdmin: boolean }> => {
-    const cleanEmail = email.trim().toLowerCase();
-    const isAdminAccount = cleanEmail === ADMIN_EMAIL.toLowerCase() || cleanEmail === 'admin@partyhouse.com';
-
-    // If admin credentials matching Parthouse@2004
-    if (isAdminAccount) {
-      if (pass !== ADMIN_PASSWORD && pass !== 'admin') {
-        throw new Error('Incorrect admin password. Required password: Parthouse@2004');
-      }
-
-      try {
-        await signInWithEmailAndPassword(auth, cleanEmail, pass);
-      } catch (err: any) {
-        // If not yet created in this Firebase instance, create admin user automatically
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-          try {
-            const cred = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
-            await updateProfile(cred.user, { displayName: 'PartyHouse Master Admin' });
-          } catch {
-            // If creation fails (e.g. email exists with diff pass), enable manual admin mode
-            setManualAdminOverride(true);
-          }
-        } else {
-          setManualAdminOverride(true);
-        }
-      }
-
-      setManualAdminOverride(true);
-      return { isAdmin: true };
+    // Cannot log into user account if admin session is active
+    if (manualAdminOverride) {
+      throw new Error('Administrator session is active. Please sign out of Admin Console first.');
     }
-
-    // Normal user sign-in
-    await signInWithEmailAndPassword(auth, email, pass);
-    return { isAdmin: checkIsAdmin(email) };
+    // Normal user sign-in - does NOT grant admin access; admin console strictly requires secret code
+    await signInWithEmailAndPassword(auth, email.trim(), pass);
+    return { isAdmin: false };
   };
 
   const signUpWithEmail = async (email: string, pass: string, name: string) => {
+    if (manualAdminOverride) {
+      throw new Error('Administrator session is active. Please sign out of Admin Console first.');
+    }
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     if (cred.user) {
       await updateProfile(cred.user, { displayName: name });
     }
   };
 
-  const signInDemoGuest = async (asAdmin: boolean = false) => {
-    const email = asAdmin ? ADMIN_EMAIL : `guest_${Math.floor(Math.random() * 8999 + 1000)}@partyhub.test`;
-    const dummyUid = asAdmin ? 'admin_partyhouse_root' : `guest_${Date.now()}`;
-    const name = asAdmin ? 'PartyHouse Admin' : 'Party Guest';
+  const signInDemoGuest = async (_asAdmin?: boolean) => {
+    if (manualAdminOverride) {
+      throw new Error('Administrator session is active. Please sign out of Admin Console first.');
+    }
+    const email = `guest_${Math.floor(Math.random() * 8999 + 1000)}@partyhub.test`;
+    const dummyUid = `guest_${Date.now()}`;
+    const name = 'Party Guest';
 
     const mockProfile: UserProfileData = {
       uid: dummyUid,
       email,
       displayName: name,
       photoURL: `https://api.dicebear.com/7.x/bottts/svg?seed=${name}`,
-      isAdmin: asAdmin || manualAdminOverride,
+      isAdmin: false,
     };
-
-    if (asAdmin) {
-      setManualAdminOverride(true);
-    }
 
     setProfile(mockProfile);
     setCurrentUser({
@@ -191,25 +205,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore
     }
     setManualAdminOverride(false);
+    try {
+      sessionStorage.removeItem('celebrato_admin_verified');
+    } catch {}
     setCurrentUser(null);
     setProfile(null);
   };
 
-  const toggleAdminMode = () => {
+  const toggleAdminMode = (override?: boolean) => {
     setManualAdminOverride((prev) => {
-      const next = !prev;
+      const next = typeof override === 'boolean' ? override : !prev;
+      try {
+        if (next) {
+          sessionStorage.setItem('celebrato_admin_verified', 'true');
+        } else {
+          sessionStorage.removeItem('celebrato_admin_verified');
+        }
+      } catch {}
       if (profile) {
-        setProfile({ ...profile, isAdmin: next || checkIsAdmin(profile.email) });
+        setProfile({ ...profile, isAdmin: next });
       }
       return next;
     });
   };
 
-  const isCurrentAdmin = Boolean(
-    manualAdminOverride ||
-    profile?.isAdmin ||
-    checkIsAdmin(currentUser?.email)
-  );
+  // Strictly controlled by code verification - normal user login never bypasses this
+  const isCurrentAdmin = Boolean(manualAdminOverride);
 
   return (
     <AuthContext.Provider
@@ -218,6 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         loading,
         isAdmin: isCurrentAdmin,
+        verifyAdminCode,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
