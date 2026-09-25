@@ -164,75 +164,40 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right Action / Auth */}
         <div className="flex items-center gap-3">
           {isAdmin ? (
-            /* Admin Active Session */
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 pl-2">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-sm font-bold shadow-sm">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div className="hidden lg:flex flex-col text-left">
-                  <span className="text-sm font-bold text-white">
-                    Administrator
-                  </span>
-                  <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">
-                    Console Session
-                  </span>
-                </div>
+            /* Admin Active Session - Clean, minimal, mobile-friendly without signout button */
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-sm">
+                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-xs font-bold font-outfit tracking-wide">
+                  <span className="hidden sm:inline">Admin </span>Console
+                </span>
               </div>
-
-              <button
-                id="nav-admin-signout-btn"
-                onClick={async () => {
-                  await signOut();
-                  setActiveView('home');
-                }}
-                title="Sign Out of Administrator Session"
-                className="px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/30 rounded-xl transition flex items-center gap-1.5 font-bold active:scale-95 cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out Admin</span>
-              </button>
             </div>
           ) : currentUser ? (
-            /* User Active Session */
+            /* User Active Session - Clean header profile shortcut */
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="flex items-center gap-2 pl-2">
-                <div 
-                  onClick={() => {
-                    setActiveView('dashboard');
-                    setDashboardTab('bookings');
-                  }}
-                  className="cursor-pointer flex items-center gap-2 group"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#282828] border border-[#3e3e3e] overflow-hidden flex items-center justify-center text-sm font-bold text-amber-400">
-                    {profile?.photoURL ? (
-                      <img src={profile.photoURL} alt={profile.displayName} className="w-full h-full object-cover" />
-                    ) : (
-                      profile?.displayName?.charAt(0).toUpperCase() || 'P'
-                    )}
-                  </div>
-                  <div className="hidden lg:flex flex-col text-left">
-                    <span className="text-sm font-bold text-gray-200 max-w-[130px] truncate group-hover:text-amber-300">
-                      {profile?.displayName || 'Party Host'}
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-medium">
-                      Host Account
-                    </span>
-                  </div>
+              <div 
+                onClick={() => {
+                  setActiveView('dashboard');
+                  setDashboardTab('bookings');
+                }}
+                className="cursor-pointer flex items-center gap-2 group pl-1"
+              >
+                <div className="w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-[#282828] border border-[#3e3e3e] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-bold text-amber-400">
+                  {profile?.photoURL ? (
+                    <img src={profile.photoURL} alt={profile.displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    profile?.displayName?.charAt(0).toUpperCase() || 'P'
+                  )}
                 </div>
-
-                <button
-                  id="nav-logout-btn"
-                  onClick={async () => {
-                    await signOut();
-                    setActiveView('home');
-                  }}
-                  title="Sign Out"
-                  className="px-2.5 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/30 rounded-xl transition flex items-center gap-1.5 font-bold active:scale-95 cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </button>
+                <div className="hidden lg:flex flex-col text-left">
+                  <span className="text-sm font-bold text-gray-200 max-w-[130px] truncate group-hover:text-amber-300">
+                    {profile?.displayName || 'Party Host'}
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-medium">
+                    Host Account
+                  </span>
+                </div>
               </div>
             </div>
           ) : (
@@ -258,45 +223,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
 
-          {/* Mobile menu trigger */}
-          <button
-            id="nav-mobile-menu-btn"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-gray-400 hover:text-white rounded-lg hover:bg-[#282828] cursor-pointer"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          {/* Mobile menu trigger - Only shown for non-admin users */}
+          {!isAdmin && (
+            <button
+              id="nav-mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 text-gray-400 hover:text-white rounded-lg hover:bg-[#282828] cursor-pointer"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
+      {/* Mobile Drawer - Only for non-admin users */}
+      {mobileMenuOpen && !isAdmin && (
         <div id="nav-mobile-drawer" className="md:hidden px-4 pt-2 pb-6 bg-[#202020] border-b border-[#383838] space-y-3">
-          {isAdmin ? (
-            /* Admin Mobile Drawer */
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Administrator Session Active</span>
-              </div>
-              <p className="text-xs text-gray-400 px-1">
-                You are currently managing venue operations. Customer celebration pages are restricted while logged in as administrator.
-              </p>
-              <button
-                onClick={async () => {
-                  await signOut();
-                  setActiveView('home');
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out of Admin Console</span>
-              </button>
-            </div>
-          ) : (
-            /* User / Guest Mobile Drawer */
-            <>
+          {/* User / Guest Mobile Drawer */}
+          <>
               <button
                 onClick={() => {
                   setActiveView('home');
@@ -433,7 +377,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               )}
             </>
-          )}
         </div>
       )}
     </header>

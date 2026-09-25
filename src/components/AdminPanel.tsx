@@ -16,8 +16,12 @@ import {
   saveAddOn,
   deleteAddOn
 } from '../services/partyDataService';
-import { AdminBookingDetails } from './AdminBookingDetails';
 import { AdminAnalytics } from './AdminAnalytics';
+import { AdminBottomBar, BookingSubPage } from './admin/AdminBottomBar';
+import { AdminBookingsManager } from './admin/AdminBookingsManager';
+import { AdminBookingDetails } from './AdminBookingDetails';
+import { AdminRoomEditor } from './admin/AdminRoomEditor';
+import { AdminAddonEditor } from './admin/AdminAddonEditor';
 import { 
   ShieldCheck, 
   Lock, 
@@ -56,17 +60,31 @@ import {
 
 interface AdminPanelProps {
   onNavigateHome: () => void;
+  onViewingDetailsChange?: (viewing: boolean) => void;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome, onViewingDetailsChange }) => {
   const { currentUser, profile, isAdmin, verifyAdminCode, toggleAdminMode, signOut } = useAuth();
 
   // Admin authentication passkey state
   const [adminPasscode, setAdminPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState('');
 
+  // Selected booking for dedicated full-page inspection
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+
+  // Dedicated full-page editor states for rooms and add-ons (No navbar, No bottom bar)
+  const [editingRoom, setEditingRoom] = useState<{ room: Room | null } | null>(null);
+  const [editingAddon, setEditingAddon] = useState<{ addon: AddOnItem | null } | null>(null);
+
   // Active admin tab
   const [activeAdminTab, setActiveAdminTab] = useState<'bookings' | 'rooms_pricing' | 'addons' | 'analytics' | 'contacts'>('bookings');
+  const [activeBookingSubPage, setActiveBookingSubPage] = useState<BookingSubPage>('all');
+
+  // Notify parent (App.tsx) when viewing booking details, room editor, or addon editor so top navbar and bottom bar can be hidden
+  useEffect(() => {
+    onViewingDetailsChange?.(Boolean(selectedBooking || editingRoom || editingAddon));
+  }, [selectedBooking, editingRoom, editingAddon, onViewingDetailsChange]);
 
   // Data states
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -77,11 +95,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
   // Search & Filter contacts
   const [contactSearch, setContactSearch] = useState('');
   const [contactFilterStatus, setContactFilterStatus] = useState<string>('all');
-
-  // Search & Filter bookings
-  const [bookingSearch, setBookingSearch] = useState('');
-  const [bookingFilterStatus, setBookingFilterStatus] = useState<string>('all');
-  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
 
   // Room editing state
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
@@ -197,7 +210,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
   const handleStatusChange = async (bookingId: string, newStatus: Booking['status']) => {
     try {
       await updateBookingStatus(bookingId, newStatus);
-      setSelectedBookingForDetails((prev) => (prev && prev.id === bookingId ? { ...prev, status: newStatus } : prev));
       setStatusFeedback(`Booking status updated to ${newStatus}`);
       setTimeout(() => setStatusFeedback(null), 3000);
     } catch (error) {
@@ -209,7 +221,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
   const handleUpdateBookingNotes = async (bookingId: string, notes: string) => {
     try {
       await updateBookingNotes(bookingId, notes);
-      setSelectedBookingForDetails((prev) => (prev && prev.id === bookingId ? { ...prev, notes } : prev));
       setStatusFeedback('Booking administrative notes saved.');
       setTimeout(() => setStatusFeedback(null), 3000);
     } catch (error) {
@@ -390,21 +401,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
     e.target.value = '';
   };
 
-  // Filter Bookings
-  const filteredBookings = bookings.filter((b) => {
-    if (bookingFilterStatus !== 'all' && b.status !== bookingFilterStatus) return false;
-    if (bookingSearch.trim()) {
-      const q = bookingSearch.toLowerCase();
-      const matchName = (b.userName || '').toLowerCase().includes(q);
-      const matchEmail = (b.userEmail || '').toLowerCase().includes(q);
-      const matchCode = (b.shareCode || '').toLowerCase().includes(q);
-      const matchRoom = (b.roomName || '').toLowerCase().includes(q);
-      const matchEvent = (b.eventName || '').toLowerCase().includes(q);
-      return matchName || matchEmail || matchCode || matchRoom || matchEvent;
-    }
-    return true;
-  });
-
   // Non-authenticated Admin Gate
   if (!isAdmin) {
     return (
@@ -495,12 +491,87 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
     );
   }
 
+  // Dedicated Full-Page View for Booking Details:
+  // Removes all on top (navbar, console headers, metrics, tabs) and bottom bar,
+  // showing only the booking in a clean dedicated page with back button.
+  if (selectedBooking) {
+    return (
+      <div id="admin-booking-details-fullscreen" className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 min-h-screen text-gray-200">
+        <AdminBookingDetails
+          booking={selectedBooking}
+          onBack={() => {
+            setSelectedBooking(null);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onStatusChange={async (id, status) => {
+            await handleStatusChange(id, status);
+            setSelectedBooking(prev => prev ? { ...prev, status } : null);
+          }}
+          onUpdateNotes={async (id, notes) => {
+            await handleUpdateBookingNotes(id, notes);
+            setSelectedBooking(prev => prev ? { ...prev, notes } : null);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Dedicated Full-Page View for Room Editing / Creation:
+  // Removes navbar and bottom bar, displays clean dedicated page with back button icon on top
+  if (editingRoom) {
+    return (
+      <div id="admin-room-editor-fullscreen" className="min-h-screen bg-[#202020] text-gray-200 pb-16">
+        <AdminRoomEditor
+          room={editingRoom.room}
+          onBack={() => {
+            setEditingRoom(null);
+            setActiveAdminTab('rooms_pricing');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onSave={async (savedRoom) => {
+            await saveRoom(savedRoom);
+            setEditingRoom(null);
+            setActiveAdminTab('rooms_pricing');
+            setStatusFeedback(`Party suite "${savedRoom.name}" saved successfully!`);
+            setTimeout(() => setStatusFeedback(null), 3500);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Dedicated Full-Page View for Add-On Editing / Creation:
+  // Removes navbar and bottom bar, displays clean dedicated page with back button icon on top
+  if (editingAddon) {
+    return (
+      <div id="admin-addon-editor-fullscreen" className="min-h-screen bg-[#202020] text-gray-200 pb-16">
+        <AdminAddonEditor
+          addon={editingAddon.addon}
+          onBack={() => {
+            setEditingAddon(null);
+            setActiveAdminTab('addons');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onSave={async (savedAddon) => {
+            await saveAddOn(savedAddon);
+            setEditingAddon(null);
+            setActiveAdminTab('addons');
+            setStatusFeedback(`Add-on item "${savedAddon.name}" saved to catalog!`);
+            setTimeout(() => setStatusFeedback(null), 3500);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      </div>
+    );
+  }
+
   // Authenticated Admin Dashboard
   return (
-    <div id="admin-panel-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 bg-[#202020] min-h-screen text-gray-200">
+    <div id="admin-panel-container" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-8 pb-32 sm:pb-32 space-y-4 sm:space-y-8 bg-[#202020] min-h-screen text-gray-200">
       
-      {/* Top Banner & Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#383838] pb-6">
+      {/* Top Banner & Header - Hidden on mobile, visible on desktop */}
+      <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#383838] pb-6">
         <div className="space-y-1 text-left">
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-black uppercase tracking-wider border border-amber-500/30 flex items-center gap-1.5">
@@ -521,7 +592,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setIsNewRoomModalOpen(true)}
+            onClick={() => setEditingRoom({ room: null })}
             className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -529,7 +600,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
           </button>
 
           <button
-            onClick={handleOpenNewAddon}
+            onClick={() => setEditingAddon({ addon: null })}
             className="px-4 py-2 rounded-xl bg-[#282828] hover:bg-[#323232] border border-[#383838] text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <Tag className="w-4 h-4 text-amber-400" />
@@ -559,8 +630,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
         </div>
       )}
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Metrics Row (Analytics counts) - Hidden on mobile UI, opened as separate page via bottom bar */}
+      <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-[#202020] border border-[#383838] space-y-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Revenue</span>
           <div className="text-2xl font-black text-white font-outfit">
@@ -594,8 +665,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#383838] pb-2 overflow-x-auto modern-scrollbar">
+      {/* Navigation Tabs - Hidden on mobile, bottom bar provides separate pages */}
+      <div className="hidden md:flex items-center gap-2 border-b border-[#383838] pb-2 overflow-x-auto modern-scrollbar">
         {[
           { id: 'bookings', label: 'Party Bookings', count: bookings.length },
           { id: 'analytics', label: 'Financial Analytics & Graph', count: '₹' + Math.round(totalRevenue/1000) + 'k' },
@@ -608,7 +679,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
             id={`admin-tab-${tab.id}`}
             onClick={() => {
               setActiveAdminTab(tab.id as any);
-              setSelectedBookingForDetails(null);
             }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${
               activeAdminTab === tab.id
@@ -626,153 +696,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
         ))}
       </div>
 
-      {/* TAB 1: PARTY BOOKINGS */}
+      {/* TAB 1: SEPARATE PARTY BOOKINGS PAGES */}
       {activeAdminTab === 'bookings' && (
-        <div>
-          {/* Detailed Separate Page View when a booking is selected */}
-          {selectedBookingForDetails ? (
-            <AdminBookingDetails
-              booking={selectedBookingForDetails}
-              onBack={() => setSelectedBookingForDetails(null)}
-              onStatusChange={handleStatusChange}
-              onUpdateNotes={handleUpdateBookingNotes}
-            />
-          ) : (
-            <div className="space-y-4">
-              {/* Filter & Search Bar */}
-              <div className="p-4 rounded-2xl bg-[#202020] border border-[#383838] flex flex-col md:flex-row items-center justify-between gap-3">
-                <div className="relative w-full md:w-80">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                  <input
-                    id="admin-booking-search-input"
-                    type="text"
-                    placeholder="Search host, email, code, room..."
-                    value={bookingSearch}
-                    onChange={(e) => setBookingSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-[#181818] border border-[#383838] rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto">
-                  {['all', 'confirmed', 'checked-in', 'completed', 'cancelled'].map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => setBookingFilterStatus(status)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize whitespace-nowrap transition ${
-                        bookingFilterStatus === status
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'bg-[#282828] text-gray-400 hover:text-white border border-[#383838]'
-                      }`}
-                    >
-                      {status}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bookings Table / Cards */}
-              {filteredBookings.length === 0 ? (
-                <div className="p-12 text-center bg-[#202020] rounded-3xl border border-[#383838] text-gray-400 text-xs">
-                  No bookings match your current filter.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredBookings.map((b) => (
-                    <div
-                      key={b.id}
-                      id={`admin-booking-row-${b.id}`}
-                      onClick={() => setSelectedBookingForDetails(b)}
-                      className="p-5 rounded-2xl bg-[#202020] border border-[#383838] hover:border-amber-500/50 hover:bg-[#222222] transition flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 cursor-pointer group"
-                    >
-                      {/* Event & Room Info */}
-                      <div className="space-y-1 max-w-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-bold text-amber-400 bg-[#181818] px-2 py-0.5 rounded border border-[#383838]">
-                            {b.shareCode}
-                          </span>
-                          <h4 className="text-base font-bold text-white truncate font-outfit group-hover:text-amber-300 transition">
-                            {b.eventName}
-                          </h4>
-                        </div>
-                        <p className="text-xs text-gray-400">
-                          Room: <strong className="text-gray-200">{b.roomName}</strong> • Host: <strong className="text-gray-200">{b.userName}</strong> ({b.userEmail})
-                        </p>
-                        {b.userPhone && (
-                          <p className="text-[11px] text-gray-500">Phone: {b.userPhone}</p>
-                        )}
-                      </div>
-
-                      {/* Schedule & Guests */}
-                      <div className="text-xs space-y-1">
-                        <div className="text-gray-300 font-semibold flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                          <span>{b.date} ({b.timeSlot})</span>
-                        </div>
-                        <div className="text-gray-400 flex items-center gap-2">
-                          <span>{b.guestsCount} Guests</span>
-                          <span>•</span>
-                          <span>{b.durationHours} Hours</span>
-                        </div>
-                        {b.addOns && b.addOns.length > 0 && (
-                          <div className="text-[11px] text-amber-300/90 truncate max-w-xs">
-                            Add-ons: {b.addOns.map((a) => `${a.quantity}x ${a.name}`).join(', ')}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Pricing Breakdown */}
-                      <div className="text-xs space-y-0.5">
-                        <div className="text-lg font-black text-white font-outfit">
-                          ₹{b.finalPrice.toLocaleString('en-IN')}
-                        </div>
-                        <div className="text-[11px] text-gray-400">
-                          {b.durationHours}h reservation
-                        </div>
-                      </div>
-
-                      {/* Status & Actions */}
-                      <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                          b.status === 'confirmed'
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : b.status === 'checked-in'
-                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                            : b.status === 'completed'
-                            ? 'bg-[#282828] text-gray-300'
-                            : 'bg-rose-500/20 text-rose-400'
-                        }`}>
-                          {b.status}
-                        </span>
-
-                        <select
-                          value={b.status}
-                          onChange={(e) => handleStatusChange(b.id, e.target.value as Booking['status'])}
-                          className="px-2.5 py-1.5 bg-[#181818] border border-[#383838] rounded-lg text-xs text-white focus:outline-none focus:border-amber-500"
-                        >
-                          <option value="confirmed">Confirmed</option>
-                          <option value="checked-in">Checked In</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-
-                        <button
-                          id={`admin-view-booking-btn-${b.id}`}
-                          type="button"
-                          onClick={() => setSelectedBookingForDetails(b)}
-                          className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500 text-amber-400 hover:text-slate-950 border border-amber-500/30 text-xs font-bold transition flex items-center gap-1.5 active:scale-95 shadow-sm"
-                          title="View all booking details, room and add-ons in dedicated page"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View Details</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <AdminBookingsManager
+          bookings={bookings}
+          rooms={rooms}
+          activeSubPage={activeBookingSubPage}
+          onSelectSubPage={setActiveBookingSubPage}
+          onStatusChange={handleStatusChange}
+          onUpdateNotes={handleUpdateBookingNotes}
+          onSelectBooking={(b) => {
+            setSelectedBooking(b);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
       )}
 
       {/* TAB 2: FINANCIAL ANALYTICS & GRAPH */}
@@ -783,16 +720,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
       {/* TAB 2: ROOMS & PRICING CONTROL */}
       {activeAdminTab === 'rooms_pricing' && (
         <div className="space-y-6">
-          <div className="p-4 rounded-2xl bg-[#202020] border border-[#383838] flex items-center justify-between text-xs text-amber-300">
-            <span className="flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-amber-400" />
-              Adjust hourly rates (₹/hr), capacity, descriptions, images, and video tour links. Changes immediately sync in real-time.
-            </span>
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#202020] border border-[#383838] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border text-amber-400 bg-amber-500/10 border-amber-500/30">
+                  {rooms.length} Party Suites
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white font-outfit">
+                Party Suites & Inventory Control
+              </h2>
+              <p className="hidden sm:block text-xs text-gray-400 max-w-2xl leading-relaxed">
+                Adjust hourly rates (₹/hr), capacity, descriptions, images, and video tour links.
+              </p>
+            </div>
             <button
-              onClick={() => setIsNewRoomModalOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shrink-0"
+              onClick={() => setEditingRoom({ room: null })}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20 transition cursor-pointer shrink-0"
             >
-              + Add Room
+              <Plus className="w-4 h-4" />
+              <span>Add New Room</span>
             </button>
           </div>
 
@@ -1114,8 +1061,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
                       <>
                         <button
                           id={`admin-edit-room-btn-${room.id}`}
-                          onClick={() => handleStartEditRoom(room)}
-                          className="px-4 py-2 rounded-xl bg-[#282828] hover:bg-[#323232] text-xs font-bold text-white border border-[#383838] flex items-center gap-1.5 transition"
+                          onClick={() => setEditingRoom({ room })}
+                          className="px-4 py-2 rounded-xl bg-[#282828] hover:bg-[#323232] text-xs font-bold text-white border border-[#383838] flex items-center gap-1.5 transition cursor-pointer"
                         >
                           <Edit3 className="w-3.5 h-3.5 text-amber-400" />
                           Edit Pricing & Details
@@ -1141,15 +1088,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
       {/* TAB 3: ADD-ONS CRUD CATALOG */}
       {activeAdminTab === 'addons' && (
         <div className="space-y-6">
-          <div className="p-4 rounded-2xl bg-[#202020] border border-[#383838] flex items-center justify-between text-xs text-gray-300">
-            <span>
-              Manage party enhancement add-ons available to customers during booking. You can add, edit price in ₹, image, description, or delete any add-on.
-            </span>
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#202020] border border-[#383838] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border text-amber-400 bg-amber-500/10 border-amber-500/30">
+                  {addons.length} Add-On Items
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white font-outfit">
+                Custom Party Add-Ons Catalog
+              </h2>
+              <p className="hidden sm:block text-xs text-gray-400 max-w-2xl leading-relaxed">
+                Manage party enhancement add-ons available to customers during booking.
+              </p>
+            </div>
             <button
-              onClick={handleOpenNewAddon}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shrink-0"
+              onClick={() => setEditingAddon({ addon: null })}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20 transition cursor-pointer shrink-0"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
               <span>Add New Add-On</span>
             </button>
           </div>
@@ -1199,8 +1156,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
                 {/* Footer Controls */}
                 <div className="p-4 bg-[#181818] border-t border-[#383838] flex items-center justify-between">
                   <button
-                    onClick={() => handleOpenEditAddon(addon)}
-                    className="px-3 py-1.5 rounded-lg bg-[#282828] hover:bg-[#323232] text-xs font-bold text-white border border-[#383838] flex items-center gap-1.5 transition"
+                    onClick={() => setEditingAddon({ addon })}
+                    className="px-3 py-1.5 rounded-lg bg-[#282828] hover:bg-[#323232] text-xs font-bold text-white border border-[#383838] flex items-center gap-1.5 transition cursor-pointer"
                   >
                     <Edit3 className="w-3.5 h-3.5 text-amber-400" />
                     <span>Edit Add-On</span>
@@ -1223,6 +1180,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
       {/* TAB 4: CONTACT INQUIRIES */}
       {activeAdminTab === 'contacts' && (
         <div className="space-y-4">
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#202020] border border-[#383838] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border text-amber-400 bg-amber-500/10 border-amber-500/30">
+                  {contacts.length} Messages
+                </span>
+                {contacts.filter(c => c.status === 'new').length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white animate-pulse">
+                    {contacts.filter(c => c.status === 'new').length} New Inquiries
+                  </span>
+                )}
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white font-outfit">
+                Host Concierge & Inquiries
+              </h2>
+              <p className="hidden sm:block text-xs text-gray-400 max-w-2xl leading-relaxed">
+                Direct customer assistance requests, special event inquiries, and follow-ups.
+              </p>
+            </div>
+          </div>
+
           <div className="p-4 rounded-2xl bg-[#202020] border border-[#383838] flex flex-col md:flex-row items-center justify-between gap-3">
             <div className="relative w-full md:w-80">
               <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -1307,8 +1285,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
         </div>
       )}
 
-      {/* CREATE NEW ROOM MODAL */}
-      {isNewRoomModalOpen && (
+      {/* CREATE NEW ROOM MODAL (Replaced by dedicated AdminRoomEditor page) */}
+      {false && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
           <div className="bg-[#202020] border border-[#383838] rounded-3xl p-6 sm:p-8 max-w-2xl w-full my-8 space-y-6 shadow-2xl relative text-left">
             <div className="flex items-center justify-between border-b border-[#383838] pb-4">
@@ -1566,8 +1544,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
         </div>
       )}
 
-      {/* CREATE / EDIT ADD-ON MODAL */}
-      {isAddonModalOpen && (
+      {/* CREATE / EDIT ADD-ON MODAL (Replaced by dedicated AdminAddonEditor page) */}
+      {false && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
           <div className="bg-[#202020] border border-[#383838] rounded-3xl p-6 sm:p-8 max-w-lg w-full my-8 space-y-6 shadow-2xl relative text-left">
             <div className="flex items-center justify-between border-b border-[#383838] pb-4">
@@ -1702,6 +1680,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigateHome }) => {
           </div>
         </div>
       )}
+
+      {/* Persistent Bottom Bar Type Layout for Administrator Console */}
+      <AdminBottomBar
+        activeTab={activeAdminTab}
+        onSelectTab={(tab) => {
+          setActiveAdminTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        activeBookingSubPage={activeBookingSubPage}
+        onSelectBookingSubPage={(sub) => {
+          setActiveAdminTab('bookings');
+          setActiveBookingSubPage(sub);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        bookingsCount={bookings.length}
+        liveCount={bookings.filter(b => b.status === 'checked-in').length}
+        unreadContactsCount={contacts.filter(c => c.status === 'new').length}
+        onSignOut={async () => {
+          await signOut();
+          onNavigateHome();
+        }}
+      />
 
     </div>
   );

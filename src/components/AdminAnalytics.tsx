@@ -7,13 +7,13 @@ import {
   Users, 
   Sparkles, 
   Layers, 
-  ArrowUpRight, 
   Building, 
   Clock, 
-  Filter,
   BarChart3,
-  PieChart,
-  CheckCircle2
+  CheckCircle2,
+  Radio,
+  Tag,
+  AlertCircle
 } from 'lucide-react';
 
 interface AdminAnalyticsProps {
@@ -41,110 +41,165 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
   const [timeframe, setTimeframe] = useState<Timeframe>('monthly');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  // Generate chart data points depending on timeframe
+  // ── 100% REAL-TIME FIRESTORE DATA CALCULATIONS (NO MOCK DATA) ──
   const chartData: ChartPoint[] = useMemo(() => {
-    // 1. Daily: Last 14 days
+    // 1. Daily: Exact last 14 days
     if (timeframe === 'daily') {
       const days: ChartPoint[] = [];
       const now = new Date();
       for (let i = 13; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateStr = d.toISOString().split('T')[0];
         const dayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-        const matching = bookings.filter((b) => b.date === dateStr);
-        const rev = matching.reduce((sum, b) => sum + (b.status !== 'cancelled' ? b.finalPrice : 0), 0);
+        const matching = bookings.filter((b) => {
+          const bDate = b.date || (b.createdAt ? b.createdAt.split('T')[0] : '');
+          return bDate === dateStr;
+        });
+
+        const rev = matching.reduce((sum, b) => sum + (b.status !== 'cancelled' ? (b.finalPrice || 0) : 0), 0);
         const confirmed = matching.filter((b) => b.status === 'confirmed').length;
         const completed = matching.filter((b) => b.status === 'completed' || b.status === 'checked-in').length;
         const cancelled = matching.filter((b) => b.status === 'cancelled').length;
 
-        // If no live booking on this day, include a realistic curve point so the chart is visually rich
-        const baselineRev = rev > 0 ? rev : (14000 + Math.floor(Math.sin(i * 1.5 + 2) * 6000 + 4000));
-        const baselineCount = matching.length > 0 ? matching.length : Math.max(1, Math.round(baselineRev / 7000));
-
         days.push({
           label: dayLabel,
-          revenue: rev > 0 ? rev : baselineRev,
-          bookingsCount: matching.length > 0 ? matching.length : baselineCount,
-          confirmed: matching.length > 0 ? confirmed : Math.round(baselineCount * 0.7),
-          completed: matching.length > 0 ? completed : Math.round(baselineCount * 0.2),
-          cancelled: matching.length > 0 ? cancelled : Math.round(baselineCount * 0.1),
+          revenue: rev,
+          bookingsCount: matching.length,
+          confirmed,
+          completed,
+          cancelled,
         });
       }
       return days;
     }
 
-    // 2. Weekly: Last 8 weeks
+    // 2. Weekly: Exact last 8 calendar weeks
     if (timeframe === 'weekly') {
       const weeks: ChartPoint[] = [];
-      const weekLabels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Current Week'];
-      
-      weekLabels.forEach((label, idx) => {
-        // Calculate slice of bookings or weighted distribution
-        const liveRev = bookings.reduce((sum, b) => sum + (b.status !== 'cancelled' ? b.finalPrice : 0), 0);
-        const weight = 0.8 + (idx * 0.15) + (Math.sin(idx) * 0.2);
-        const baseRev = Math.round(Math.max(35000, (liveRev / 4) * weight));
-        const count = Math.max(3, Math.round(baseRev / 6500));
+      const now = new Date();
+      for (let w = 7; w >= 0; w--) {
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - (w * 7 + 6));
+        const weekEnd = new Date(now);
+        weekEnd.setDate(weekEnd.getDate() - (w * 7));
+        const weekStartStr = weekStart.toISOString().split('T')[0];
+        const weekEndStr = weekEnd.toISOString().split('T')[0];
+        const label = w === 0 ? 'This Wk' : `Wk -${w}`;
+
+        const matching = bookings.filter((b) => {
+          const bDate = b.date || (b.createdAt ? b.createdAt.split('T')[0] : '');
+          return bDate >= weekStartStr && bDate <= weekEndStr;
+        });
+
+        const rev = matching.reduce((sum, b) => sum + (b.status !== 'cancelled' ? (b.finalPrice || 0) : 0), 0);
+        const confirmed = matching.filter((b) => b.status === 'confirmed').length;
+        const completed = matching.filter((b) => b.status === 'completed' || b.status === 'checked-in').length;
+        const cancelled = matching.filter((b) => b.status === 'cancelled').length;
 
         weeks.push({
           label,
-          revenue: baseRev,
-          bookingsCount: count,
-          confirmed: Math.round(count * 0.65),
-          completed: Math.round(count * 0.25),
-          cancelled: Math.round(count * 0.1),
+          revenue: rev,
+          bookingsCount: matching.length,
+          confirmed,
+          completed,
+          cancelled,
         });
-      });
+      }
       return weeks;
     }
 
-    // 3. Monthly: All 12 months
+    // 3. Monthly: All 12 months of the active year
     if (timeframe === 'monthly') {
+      const currentYear = new Date().getFullYear();
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return months.map((month, idx) => {
-        // Find bookings in this month if matching
         const matching = bookings.filter((b) => {
-          if (!b.date) return false;
-          const monthIndex = new Date(b.date).getMonth();
-          return monthIndex === idx;
+          const dateVal = b.date || b.createdAt;
+          if (!dateVal) return false;
+          const bDate = new Date(dateVal);
+          return bDate.getFullYear() === currentYear && bDate.getMonth() === idx;
         });
 
-        const liveRev = matching.reduce((sum, b) => sum + (b.status !== 'cancelled' ? b.finalPrice : 0), 0);
-        // Seasonal party curve (celebration peaks in festival and weekend months)
-        const seasonalCurve = [45000, 52000, 68000, 75000, 92000, 88000, 95000, 110000, 125000, 140000, 165000, 195000];
-        const rev = liveRev > 0 ? liveRev : seasonalCurve[idx];
-        const count = matching.length > 0 ? matching.length : Math.round(rev / 7500);
+        const rev = matching.reduce((sum, b) => sum + (b.status !== 'cancelled' ? (b.finalPrice || 0) : 0), 0);
+        const confirmed = matching.filter((b) => b.status === 'confirmed').length;
+        const completed = matching.filter((b) => b.status === 'completed' || b.status === 'checked-in').length;
+        const cancelled = matching.filter((b) => b.status === 'cancelled').length;
 
         return {
           label: month,
           revenue: rev,
-          bookingsCount: count,
-          confirmed: Math.round(count * 0.6),
-          completed: Math.round(count * 0.35),
-          cancelled: Math.round(count * 0.05),
+          bookingsCount: matching.length,
+          confirmed,
+          completed,
+          cancelled,
         };
       });
     }
 
-    // 4. Yearly: 2024 to 2027
-    const years = ['2024', '2025', '2026', '2027 (Proj)'];
-    const yearlyRevs = [540000, 890000, 1420000, 2150000];
-    return years.map((yr, idx) => {
-      const rev = yearlyRevs[idx];
-      const count = Math.round(rev / 7800);
+    // 4. Yearly: Distinct real years recorded in Firestore
+    const yearsSet = new Set<number>();
+    const currentYear = new Date().getFullYear();
+    yearsSet.add(currentYear);
+    bookings.forEach(b => {
+      const dateVal = b.date || b.createdAt;
+      if (dateVal) {
+        yearsSet.add(new Date(dateVal).getFullYear());
+      }
+    });
+    const sortedYears = Array.from(yearsSet).sort();
+
+    return sortedYears.map(yr => {
+      const matching = bookings.filter(b => {
+        const dateVal = b.date || b.createdAt;
+        if (!dateVal) return false;
+        return new Date(dateVal).getFullYear() === yr;
+      });
+
+      const rev = matching.reduce((sum, b) => sum + (b.status !== 'cancelled' ? (b.finalPrice || 0) : 0), 0);
+      const confirmed = matching.filter((b) => b.status === 'confirmed').length;
+      const completed = matching.filter((b) => b.status === 'completed' || b.status === 'checked-in').length;
+      const cancelled = matching.filter((b) => b.status === 'cancelled').length;
+
       return {
-        label: yr,
+        label: String(yr),
         revenue: rev,
-        bookingsCount: count,
-        confirmed: Math.round(count * 0.55),
-        completed: Math.round(count * 0.4),
-        cancelled: Math.round(count * 0.05),
+        bookingsCount: matching.length,
+        confirmed,
+        completed,
+        cancelled,
       };
     });
   }, [timeframe, bookings]);
 
-  // Aggregate stats
+  // Overall Global Realtime Stats
+  const globalStats = useMemo(() => {
+    const validBookings = bookings.filter(b => b.status !== 'cancelled');
+    const totalRev = validBookings.reduce((sum, b) => sum + (b.finalPrice || 0), 0);
+    const totalCount = bookings.length;
+    const paidCount = validBookings.length;
+    const aov = paidCount > 0 ? Math.round(totalRev / paidCount) : 0;
+    const totalGuests = validBookings.reduce((sum, b) => sum + (b.guestsCount || 0), 0);
+    const confirmedCount = bookings.filter(b => b.status === 'confirmed').length;
+    const checkedInCount = bookings.filter(b => b.status === 'checked-in').length;
+    const completedCount = bookings.filter(b => b.status === 'completed').length;
+    const cancelledCount = bookings.filter(b => b.status === 'cancelled').length;
+
+    return {
+      totalRev,
+      totalCount,
+      paidCount,
+      aov,
+      totalGuests,
+      confirmedCount,
+      checkedInCount,
+      completedCount,
+      cancelledCount
+    };
+  }, [bookings]);
+
+  // Current timeframe slice totals
   const totalPeriodRevenue = useMemo(() => {
     return chartData.reduce((sum, d) => sum + d.revenue, 0);
   }, [chartData]);
@@ -153,19 +208,52 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
     return chartData.reduce((sum, d) => sum + d.bookingsCount, 0);
   }, [chartData]);
 
-  const avgBookingValue = useMemo(() => {
-    return totalPeriodBookings > 0 ? Math.round(totalPeriodRevenue / totalPeriodBookings) : 0;
-  }, [totalPeriodRevenue, totalPeriodBookings]);
+  // Real Room Popularity & Revenue Breakdown
+  const roomStats = useMemo(() => {
+    const roomMap: Record<string, { id: string; name: string; revenue: number; bookingsCount: number }> = {};
+    
+    // Initialize with available rooms
+    rooms.forEach(r => {
+      roomMap[r.id] = { id: r.id, name: r.name, revenue: 0, bookingsCount: 0 };
+    });
 
-  // Max value for SVG scaling
+    bookings.forEach(b => {
+      if (b.status !== 'cancelled') {
+        const key = b.roomId || 'unknown';
+        if (!roomMap[key]) {
+          roomMap[key] = { id: key, name: b.roomName || 'Party Suite', revenue: 0, bookingsCount: 0 };
+        }
+        roomMap[key].revenue += (b.finalPrice || 0);
+        roomMap[key].bookingsCount += 1;
+      }
+    });
+
+    return Object.values(roomMap).sort((a, b) => b.revenue - a.revenue);
+  }, [rooms, bookings]);
+
+  // Real Add-On Usage Breakdown
+  const addonStats = useMemo(() => {
+    const map: Record<string, { name: string; count: number; revenue: number }> = {};
+
+    bookings.forEach(b => {
+      if (b.status !== 'cancelled' && b.addOns) {
+        b.addOns.forEach(addon => {
+          if (!map[addon.name]) {
+            map[addon.name] = { name: addon.name, count: 0, revenue: 0 };
+          }
+          map[addon.name].count += addon.quantity;
+          map[addon.name].revenue += addon.price * addon.quantity;
+        });
+      }
+    });
+
+    return Object.values(map).sort((a, b) => b.revenue - a.revenue);
+  }, [bookings]);
+
+  // Max revenue for SVG scaling
   const maxRevenue = useMemo(() => {
     const max = Math.max(...chartData.map((d) => d.revenue), 1000);
     return Math.ceil(max * 1.15);
-  }, [chartData]);
-
-  const maxBookings = useMemo(() => {
-    const max = Math.max(...chartData.map((d) => d.bookingsCount), 5);
-    return Math.ceil(max * 1.2);
   }, [chartData]);
 
   // Chart coordinates
@@ -182,191 +270,186 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
     return { x, y, ...d };
   });
 
-  // Construct SVG Area and Line path strings
-  const linePath = points.reduce((acc, p, i) => {
-    return i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
-  }, '');
-
-  const areaPath = points.length > 0
-    ? `${linePath} L ${points[points.length - 1].x} ${svgHeight - paddingY} L ${points[0].x} ${svgHeight - paddingY} Z`
+  const pathD = points.length > 0
+    ? points.reduce((acc, p, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`, '')
     : '';
 
-  // Room performance calculations
-  const roomRevenueShare = useMemo(() => {
-    return rooms.map((room) => {
-      const roomBookings = bookings.filter((b) => b.roomId === room.id);
-      const rev = roomBookings.reduce((sum, b) => sum + (b.status !== 'cancelled' ? b.finalPrice : 0), 0);
-      return {
-        room,
-        revenue: rev > 0 ? rev : (room.pricePerHour * 18),
-        bookingsCount: roomBookings.length > 0 ? roomBookings.length : 8,
-      };
-    }).sort((a, b) => b.revenue - a.revenue);
-  }, [rooms, bookings]);
+  const areaD = points.length > 0
+    ? `${pathD} L ${points[points.length - 1].x} ${svgHeight - paddingY} L ${points[0].x} ${svgHeight - paddingY} Z`
+    : '';
 
   return (
     <div id="admin-analytics-view" className="space-y-6 text-left animate-fadeIn">
-      {/* Analytics Header & Timeframe Switcher */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-3xl bg-[#202020] border border-[#383838]">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
-              <BarChart3 className="w-5 h-5" />
-            </span>
-            <h2 className="text-xl sm:text-2xl font-black text-white font-outfit">
-              Celebrato Financial & Venue Analytics
-            </h2>
+      
+      {/* Realtime Stream Status Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-[#202020] border border-[#383838] shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            <Radio className="w-5 h-5 animate-pulse" />
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Real-time performance metrics, multi-period revenue tracking, and room occupancy reports.
-          </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-black text-white font-outfit">
+                Real-Time Operations Analytics
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                Live Firestore
+              </span>
+            </div>
+            <p className="text-xs text-gray-400">
+              Computed strictly from actual Firestore database transactions with zero mock values.
+            </p>
+          </div>
         </div>
 
-        {/* Timeframe Selector Buttons */}
-        <div className="flex items-center gap-1.5 bg-[#181818] p-1.5 rounded-2xl border border-[#383838] self-start md:self-auto overflow-x-auto">
+        {/* Timeframe Selector */}
+        <div className="flex items-center bg-[#181818] p-1.5 rounded-2xl border border-[#383838]">
           {(['daily', 'weekly', 'monthly', 'yearly'] as Timeframe[]).map((tf) => (
             <button
               key={tf}
-              id={`analytics-timeframe-${tf}`}
+              id={`analytics-timeframe-${tf}-btn`}
               onClick={() => {
                 setTimeframe(tf);
                 setHoveredIndex(null);
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition capitalize ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold capitalize transition cursor-pointer ${
                 timeframe === tf
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black shadow-md'
-                  : 'text-gray-400 hover:text-white hover:bg-[#282828]'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md font-black'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
-              {tf === 'daily' && 'Daily (14d)'}
-              {tf === 'weekly' && 'Weekly (8w)'}
-              {tf === 'monthly' && 'Monthly (12m)'}
-              {tf === 'yearly' && 'Yearly (All-Time)'}
+              {tf}
             </button>
           ))}
         </div>
       </div>
 
-      {/* KPI Highlight Cards */}
+      {/* 4 Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-[#202020] border border-[#383838] space-y-1">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              {timeframe} Revenue
-            </span>
-            <DollarSign className="w-4 h-4 text-amber-400" />
+        
+        {/* Net Real Revenue */}
+        <div className="p-5 rounded-3xl bg-[#202020] border border-[#383838] space-y-2 shadow-lg">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span className="font-bold uppercase tracking-wider">Live Net Revenue</span>
+            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              <DollarSign className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-white font-outfit">
-            ₹{totalPeriodRevenue.toLocaleString('en-IN')}
-          </div>
-          <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+18.4% vs previous period</span>
+          <div className="space-y-0.5">
+            <div className="text-2xl sm:text-3xl font-black text-white font-outfit tracking-tight">
+              ₹{globalStats.totalRev.toLocaleString('en-IN')}
+            </div>
+            <div className="text-[11px] text-gray-400 font-medium">
+              Period View: <strong className="text-amber-400 font-mono">₹{totalPeriodRevenue.toLocaleString('en-IN')}</strong>
+            </div>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[#202020] border border-[#383838] space-y-1">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Total Celebrations
-            </span>
-            <Users className="w-4 h-4 text-amber-400" />
+        {/* Total Confirmed & Paid Bookings */}
+        <div className="p-5 rounded-3xl bg-[#202020] border border-[#383838] space-y-2 shadow-lg">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span className="font-bold uppercase tracking-wider">Total Bookings</span>
+            <div className="p-2 rounded-xl bg-violet-500/15 text-violet-400 border border-violet-500/30">
+              <Calendar className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-amber-400 font-outfit">
-            {totalPeriodBookings} Bookings
+          <div className="space-y-0.5">
+            <div className="text-2xl sm:text-3xl font-black text-white font-outfit tracking-tight">
+              {globalStats.totalCount}
+            </div>
+            <div className="text-[11px] text-gray-400 font-medium">
+              {globalStats.confirmedCount} Confirmed • {globalStats.completedCount} Completed
+            </div>
           </div>
-          <span className="text-[11px] text-gray-400">
-            Confirmed & completed reservations
-          </span>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[#202020] border border-[#383838] space-y-1">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Average Order Value
-            </span>
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
+        {/* Real Average Booking Value */}
+        <div className="p-5 rounded-3xl bg-[#202020] border border-[#383838] space-y-2 shadow-lg">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span className="font-bold uppercase tracking-wider">Average Order Value</span>
+            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <TrendingUp className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-white font-outfit">
-            ₹{avgBookingValue.toLocaleString('en-IN')}
+          <div className="space-y-0.5">
+            <div className="text-2xl sm:text-3xl font-black text-white font-outfit tracking-tight">
+              ₹{globalStats.aov.toLocaleString('en-IN')}
+            </div>
+            <div className="text-[11px] text-emerald-400 font-medium">
+              Across {globalStats.paidCount} paying celebrations
+            </div>
           </div>
-          <span className="text-[11px] text-gray-400">Per party reservation</span>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[#202020] border border-[#383838] space-y-1">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Average Party Time
-            </span>
-            <Clock className="w-4 h-4 text-rose-400" />
+        {/* Total Guests Hosted */}
+        <div className="p-5 rounded-3xl bg-[#202020] border border-[#383838] space-y-2 shadow-lg">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span className="font-bold uppercase tracking-wider">Guests Entertained</span>
+            <div className="p-2 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/30">
+              <Users className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-white font-outfit">
-            3.5 Hours
+          <div className="space-y-0.5">
+            <div className="text-2xl sm:text-3xl font-black text-white font-outfit tracking-tight">
+              {globalStats.totalGuests.toLocaleString('en-IN')}
+            </div>
+            <div className="text-[11px] text-gray-400 font-medium">
+              In acoustic suites & vaults
+            </div>
           </div>
-          <span className="text-[11px] text-gray-400">Peak hours: 18:00 - 23:00</span>
         </div>
       </div>
 
-      {/* PRIMARY GRAPH: REVENUE TREND LINE & AREA CHART */}
-      <div className="p-6 rounded-3xl bg-[#202020] border border-[#383838] space-y-4 shadow-xl">
+      {/* Main Interactive Revenue Graph */}
+      <div className="p-6 rounded-3xl bg-[#202020] border border-[#383838] shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#383838] pb-4">
           <div>
-            <h3 className="text-lg font-bold text-white font-outfit flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-amber-400" />
-              <span>Revenue Trajectory & Sales Graph ({timeframe.toUpperCase()})</span>
+            <h3 className="text-base font-bold text-white flex items-center gap-2 font-outfit">
+              <BarChart3 className="w-4 h-4 text-amber-400" />
+              <span>Real Revenue Timeline ({timeframe.toUpperCase()})</span>
             </h3>
             <p className="text-xs text-gray-400">
-              Interactive timeline with revenue curve and data points in INR (₹).
+              Visualizes real revenue received per {timeframe === 'daily' ? 'day' : timeframe === 'weekly' ? 'week' : timeframe === 'monthly' ? 'month' : 'year'}.
             </p>
           </div>
 
           {hoveredIndex !== null && chartData[hoveredIndex] && (
-            <div className="bg-[#181818] border border-amber-500/40 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-3">
-              <span className="font-bold text-amber-400">{chartData[hoveredIndex].label}:</span>
-              <span className="font-black text-white font-outfit">
-                ₹{chartData[hoveredIndex].revenue.toLocaleString('en-IN')}
-              </span>
-              <span className="text-gray-400">
-                ({chartData[hoveredIndex].bookingsCount} bookings)
-              </span>
+            <div className="p-2 px-3 rounded-xl bg-[#181818] border border-amber-500/30 text-xs flex items-center gap-3">
+              <span className="font-bold text-white">{chartData[hoveredIndex].label}:</span>
+              <span className="text-amber-400 font-black font-outfit">₹{chartData[hoveredIndex].revenue.toLocaleString('en-IN')}</span>
+              <span className="text-gray-400 font-mono">({chartData[hoveredIndex].bookingsCount} bookings)</span>
             </div>
           )}
         </div>
 
-        {/* SVG Chart Canvas */}
-        <div className="w-full overflow-x-auto">
-          <div className="min-w-[650px] relative">
+        {/* SVG Curve Chart */}
+        <div className="relative w-full overflow-x-auto">
+          <div className="min-w-[640px]">
             <svg
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="w-full h-64 overflow-visible"
+              className="w-full h-64 overflow-visible select-none"
             >
               <defs>
-                <linearGradient id="revenueAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.45" />
-                  <stop offset="70%" stopColor="#ea580c" stopOpacity="0.1" />
-                  <stop offset="100%" stopColor="#ea580c" stopOpacity="0.0" />
-                </linearGradient>
-                <linearGradient id="revenueLineGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#f59e0b" />
-                  <stop offset="50%" stopColor="#fbbf24" />
-                  <stop offset="100%" stopColor="#f97316" />
+                <linearGradient id="realRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
-              {/* Horizontal grid lines */}
-              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                const y = svgHeight - paddingY - ratio * usableHeight;
-                const val = Math.round(ratio * maxRevenue);
+              {/* Grid Lines */}
+              {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                const y = paddingY + pct * usableHeight;
+                const revLabel = Math.round(maxRevenue * (1 - pct));
                 return (
-                  <g key={ratio}>
+                  <g key={i}>
                     <line
                       x1={paddingX}
                       y1={y}
                       x2={svgWidth - paddingX}
                       y2={y}
-                      stroke="#2e2e2e"
+                      stroke="#2f2f2f"
                       strokeDasharray="4 4"
-                      strokeWidth="1"
                     />
                     <text
                       x={paddingX - 8}
@@ -376,125 +459,105 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
                       textAnchor="end"
                       fontFamily="monospace"
                     >
-                      ₹{val >= 100000 ? `${(val / 100000).toFixed(1)}L` : val >= 1000 ? `${Math.round(val / 1000)}k` : val}
+                      ₹{revLabel > 1000 ? `${(revLabel / 1000).toFixed(0)}k` : revLabel}
                     </text>
                   </g>
                 );
               })}
 
-              {/* Gradient Area Fill */}
-              {areaPath && (
-                <path d={areaPath} fill="url(#revenueAreaGrad)" />
+              {/* Area fill */}
+              {areaD && (
+                <path d={areaD} fill="url(#realRevenueGradient)" />
               )}
 
-              {/* Line Stroke */}
-              {linePath && (
+              {/* Line path */}
+              {pathD && (
                 <path
-                  d={linePath}
+                  d={pathD}
                   fill="none"
-                  stroke="url(#revenueLineGrad)"
-                  strokeWidth="3.5"
+                  stroke="#f59e0b"
+                  strokeWidth="3"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               )}
 
-              {/* Interactive Data Points */}
-              {points.map((p, idx) => {
-                const isHovered = hoveredIndex === idx;
-                return (
-                  <g
-                    key={idx}
-                    className="cursor-pointer transition-all"
-                    onMouseEnter={() => setHoveredIndex(idx)}
-                    onMouseLeave={() => setHoveredIndex(null)}
+              {/* Data points & Interaction */}
+              {points.map((p, i) => (
+                <g 
+                  key={i}
+                  className="cursor-pointer group"
+                  onMouseEnter={() => setHoveredIndex(i)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                >
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={hoveredIndex === i ? 6 : 4}
+                    fill={hoveredIndex === i ? '#ffffff' : '#f59e0b'}
+                    stroke="#1c1c1c"
+                    strokeWidth="2"
+                    className="transition-all duration-150"
+                  />
+                  {/* Bottom Label */}
+                  <text
+                    x={p.x}
+                    y={svgHeight - 8}
+                    fill={hoveredIndex === i ? '#ffffff' : '#888888'}
+                    fontSize="10"
+                    fontWeight={hoveredIndex === i ? 'bold' : 'normal'}
+                    textAnchor="middle"
                   >
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r={isHovered ? 7 : 4}
-                      fill={isHovered ? '#fbbf24' : '#f59e0b'}
-                      stroke="#181818"
-                      strokeWidth={isHovered ? 3 : 2}
-                    />
-                    {/* X-axis label */}
-                    <text
-                      x={p.x}
-                      y={svgHeight - 8}
-                      fill={isHovered ? '#ffffff' : '#9ca3af'}
-                      fontSize="10"
-                      fontWeight={isHovered ? 'bold' : 'normal'}
-                      textAnchor="middle"
-                    >
-                      {p.label}
-                    </text>
-                  </g>
-                );
-              })}
+                    {p.label}
+                  </text>
+                </g>
+              ))}
             </svg>
           </div>
         </div>
       </div>
 
-      {/* SECONDARY ROW: BOOKINGS VOLUME BAR CHART & ROOM REVENUE SHARE */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Bookings Volume Bar Chart (7 cols) */}
-        <div className="lg:col-span-7 p-6 rounded-3xl bg-[#202020] border border-[#383838] space-y-4 shadow-lg">
+      {/* Two Column Section: Top Rooms & Top Add-Ons */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Top Rooms Performance */}
+        <div className="p-6 rounded-3xl bg-[#202020] border border-[#383838] space-y-4 shadow-lg">
           <div className="flex items-center justify-between border-b border-[#383838] pb-3">
-            <div>
-              <h3 className="text-base font-bold text-white font-outfit flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-amber-400" />
-                <span>Bookings Count & Status Distribution</span>
-              </h3>
-              <p className="text-[11px] text-gray-400">
-                Number of reservations hosted per interval.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-[11px]">
-              <div className="flex items-center gap-1 text-emerald-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Confirmed
-              </div>
-              <div className="flex items-center gap-1 text-blue-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Completed
-              </div>
-              <div className="flex items-center gap-1 text-rose-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Cancelled
-              </div>
-            </div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2 font-outfit">
+              <Building className="w-4 h-4 text-amber-400" />
+              Room Suite Performance
+            </h3>
+            <span className="text-xs text-gray-400 font-mono">
+              {roomStats.length} Suites Ranked
+            </span>
           </div>
 
-          {/* Bar Chart Representation */}
-          <div className="space-y-3 pt-2">
-            {chartData.map((d, i) => {
-              const total = d.bookingsCount || 1;
-              const confPct = Math.round((d.confirmed / total) * 100);
-              const compPct = Math.round((d.completed / total) * 100);
-              const cancPct = Math.max(0, 100 - confPct - compPct);
+          <div className="space-y-3">
+            {roomStats.map((room, idx) => {
+              const maxRev = roomStats[0]?.revenue || 1;
+              const pct = Math.min(100, Math.round((room.revenue / (maxRev || 1)) * 100));
 
               return (
-                <div key={i} className="space-y-1">
+                <div key={idx} className="p-3.5 rounded-2xl bg-[#181818] border border-[#303030] space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-gray-300 w-24 truncate">{d.label}</span>
-                    <span className="font-mono text-gray-400">{d.bookingsCount} events</span>
+                    <span className="font-bold text-white truncate max-w-[200px]">
+                      {room.name}
+                    </span>
+                    <span className="font-black text-amber-400 font-outfit">
+                      ₹{room.revenue.toLocaleString('en-IN')}
+                    </span>
                   </div>
 
-                  {/* Multi-segment Stacked Bar */}
-                  <div className="h-3 w-full bg-[#181818] rounded-full overflow-hidden flex border border-[#303030]">
-                    <div
-                      style={{ width: `${confPct}%` }}
-                      className="bg-emerald-500 h-full transition-all duration-500"
-                      title={`${d.confirmed} Confirmed`}
+                  <div className="w-full h-2 rounded-full bg-[#2a2a2a] overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.max(5, pct)}%` }}
                     />
-                    <div
-                      style={{ width: `${compPct}%` }}
-                      className="bg-blue-500 h-full transition-all duration-500"
-                      title={`${d.completed} Completed`}
-                    />
-                    <div
-                      style={{ width: `${cancPct}%` }}
-                      className="bg-rose-500 h-full transition-all duration-500"
-                      title={`${d.cancelled} Cancelled`}
-                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-gray-400">
+                    <span>{room.bookingsCount} Total Bookings</span>
+                    <span>{pct}% of peak suite volume</span>
                   </div>
                 </div>
               );
@@ -502,62 +565,48 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
           </div>
         </div>
 
-        {/* Party Suite Revenue Share (5 cols) */}
-        <div className="lg:col-span-5 p-6 rounded-3xl bg-[#202020] border border-[#383838] space-y-4 shadow-lg">
-          <div className="border-b border-[#383838] pb-3">
-            <h3 className="text-base font-bold text-white font-outfit flex items-center gap-2">
-              <Building className="w-4 h-4 text-amber-400" />
-              <span>Room Revenue Contribution</span>
+        {/* Top Add-Ons Performance */}
+        <div className="p-6 rounded-3xl bg-[#202020] border border-[#383838] space-y-4 shadow-lg">
+          <div className="flex items-center justify-between border-b border-[#383838] pb-3">
+            <h3 className="text-base font-bold text-white flex items-center gap-2 font-outfit">
+              <Sparkles className="w-4 h-4 text-rose-400" />
+              Party Add-Ons & Upsells
             </h3>
-            <p className="text-[11px] text-gray-400">
-              Top performing party suites ranked by gross earnings.
-            </p>
+            <span className="text-xs text-gray-400 font-mono">
+              {addonStats.length} Unique Packages
+            </span>
           </div>
 
-          <div className="space-y-3.5">
-            {roomRevenueShare.map(({ room, revenue, bookingsCount }) => {
-              const maxRoomRev = Math.max(...roomRevenueShare.map((r) => r.revenue), 1);
-              const sharePct = Math.round((revenue / maxRoomRev) * 100);
-
-              return (
-                <div key={room.id} className="p-3 rounded-2xl bg-[#181818] border border-[#303030] space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg overflow-hidden bg-[#252525] shrink-0 border border-[#383838]">
-                        <img
-                          src={room.pictures?.[0] || 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=120&q=80'}
-                          alt={room.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-white block truncate max-w-[130px]">
-                          {room.name}
-                        </span>
-                        <span className="text-[10px] text-gray-400">
-                          ₹{room.pricePerHour}/hr • {bookingsCount} bookings
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-sm font-black text-amber-400 font-outfit">
-                        ₹{revenue.toLocaleString('en-IN')}
-                      </span>
-                    </div>
+          {addonStats.length > 0 ? (
+            <div className="space-y-3">
+              {addonStats.map((addon, idx) => (
+                <div key={idx} className="p-3.5 rounded-2xl bg-[#181818] border border-[#303030] flex items-center justify-between gap-3 text-xs">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-white block">
+                      {addon.name}
+                    </span>
+                    <span className="text-[11px] text-gray-400">
+                      Ordered {addon.count} times
+                    </span>
                   </div>
-
-                  {/* Progress bar */}
-                  <div className="h-1.5 w-full bg-[#252525] rounded-full overflow-hidden">
-                    <div
-                      style={{ width: `${sharePct}%` }}
-                      className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-700"
-                    />
+                  <div className="text-right">
+                    <span className="text-sm font-black text-rose-400 font-outfit block">
+                      ₹{addon.revenue.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] text-gray-500">Gross Sales</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-[#181818] rounded-2xl border border-[#303030] space-y-2">
+              <Tag className="w-8 h-8 text-gray-600 mx-auto" />
+              <p className="text-xs text-gray-400 font-medium">No Add-Ons Recorded Yet</p>
+              <p className="text-[11px] text-gray-500">
+                When customers attach DJ sets, laser rigs, or neon wristbands to bookings, they will appear here in real-time.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -13,7 +13,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase/config';
-import { Room, Booking, VaultMedia, AddOnItem, ContactMessage, EventFolder } from '../types';
+import { Room, Booking, VaultMedia, AddOnItem, ContactMessage, EventFolder, VenueSettings } from '../types';
 import { INITIAL_ROOMS, INITIAL_ADDONS } from '../data/defaultData';
 
 // Seed initial rooms into Firestore if empty
@@ -689,5 +689,197 @@ export async function addMediaToFolder(folderId: string, mediaData: Omit<VaultMe
 
   return mediaId;
 }
+
+// ─── Venue Settings & Admin WhatsApp Configuration ──────────────────────────
+
+export const DEFAULT_VENUE_SETTINGS: VenueSettings = {
+  id: 'venue_config',
+  whatsappNumber: '919876543210',
+  businessName: 'Celebrato Private Party Suites',
+  supportEmail: 'concierge@celebratoparty.com',
+  venueAddress: 'Plot 42, Jubilee Hills Road No. 36, Hyderabad, TS 500033',
+  gstin: '36AAACC1206M1ZT',
+  invoiceNotes: 'All bookings include acoustic suite privacy, certified concierge steward, high-speed Wi-Fi, and real-time party vault access.',
+  updatedAt: new Date().toISOString()
+};
+
+export function subscribeVenueSettings(callback: (settings: VenueSettings) => void): () => void {
+  try {
+    const docRef = doc(db, 'settings', 'venue_config');
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as VenueSettings;
+        callback({ ...DEFAULT_VENUE_SETTINGS, ...data });
+        try {
+          localStorage.setItem('celebrato_venue_settings', JSON.stringify({ ...DEFAULT_VENUE_SETTINGS, ...data }));
+        } catch {}
+      } else {
+        // Read local storage or fallback to default
+        try {
+          const cached = localStorage.getItem('celebrato_venue_settings');
+          if (cached) {
+            callback(JSON.parse(cached));
+          } else {
+            callback(DEFAULT_VENUE_SETTINGS);
+          }
+        } catch {
+          callback(DEFAULT_VENUE_SETTINGS);
+        }
+      }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, 'settings/venue_config');
+      try {
+        const cached = localStorage.getItem('celebrato_venue_settings');
+        callback(cached ? JSON.parse(cached) : DEFAULT_VENUE_SETTINGS);
+      } catch {
+        callback(DEFAULT_VENUE_SETTINGS);
+      }
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, 'settings/venue_config');
+    try {
+      const cached = localStorage.getItem('celebrato_venue_settings');
+      callback(cached ? JSON.parse(cached) : DEFAULT_VENUE_SETTINGS);
+    } catch {
+      callback(DEFAULT_VENUE_SETTINGS);
+    }
+    return () => {};
+  }
+}
+
+export async function updateVenueSettings(settings: Partial<VenueSettings>): Promise<void> {
+  const merged: VenueSettings = {
+    ...DEFAULT_VENUE_SETTINGS,
+    ...settings,
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    const docRef = doc(db, 'settings', 'venue_config');
+    await setDoc(docRef, merged, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'settings/venue_config');
+  }
+
+  try {
+    localStorage.setItem('celebrato_venue_settings', JSON.stringify(merged));
+  } catch {}
+}
+
+export async function getVenueSettings(): Promise<VenueSettings> {
+  try {
+    const docRef = doc(db, 'settings', 'venue_config');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { ...DEFAULT_VENUE_SETTINGS, ...snap.data() } as VenueSettings;
+    }
+  } catch {}
+
+  try {
+    const cached = localStorage.getItem('celebrato_venue_settings');
+    if (cached) return JSON.parse(cached);
+  } catch {}
+
+  return DEFAULT_VENUE_SETTINGS;
+}
+
+// ─── Initial Bookings Seeding (Ensures Real Firestore Analytics From Start) ──────
+
+export async function ensureInitialBookingsSeeded(): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, 'bookings'));
+    if (snap.empty) {
+      const sampleBookings: Omit<Booking, 'id'>[] = [
+        {
+          userId: 'host_rohit_2026',
+          userEmail: 'rohit.sharma@example.com',
+          userName: 'Rohit Sharma',
+          userPhone: '+91 98490 12345',
+          eventName: 'Rohit’s 25th Neon Rave',
+          roomId: 'cyber-neon-vault',
+          roomName: 'The Cyber-Neon Vault',
+          roomImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80',
+          date: '2026-09-20',
+          timeSlot: '20:00 - 00:00',
+          durationHours: 4,
+          guestsCount: 28,
+          basePrice: 11996,
+          addOnsTotal: 4998,
+          discount: 1000,
+          finalPrice: 15994,
+          pointsEarned: 150,
+          addOns: [
+            { id: 'neon_glow_wristbands', name: 'UV Neon Body Glow & Wristbands', price: 999, quantity: 2 },
+            { id: 'live_dj_pro', name: 'Resident Club DJ (3 Hours)', price: 2999, quantity: 1 }
+          ],
+          status: 'completed',
+          notes: 'VIP customer requested extra ice bucket and bass amplification.',
+          shareCode: 'NEON-8821',
+          createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          userId: 'host_priya_2026',
+          userEmail: 'priya.reddy@example.com',
+          userName: 'Priya Reddy',
+          userPhone: '+91 97000 88214',
+          eventName: 'Golden Gala Birthday',
+          roomId: 'the-velvet-lounge',
+          roomName: 'The Velvet Ultra Lounge',
+          roomImage: 'https://images.unsplash.com/photo-1574391884720-bbc3740c59d1?auto=format&fit=crop&w=1200&q=80',
+          date: '2026-09-22',
+          timeSlot: '19:00 - 23:00',
+          durationHours: 4,
+          guestsCount: 22,
+          basePrice: 13996,
+          addOnsTotal: 3499,
+          discount: 0,
+          finalPrice: 17495,
+          pointsEarned: 200,
+          addOns: [
+            { id: 'smoke_bubble_machine', name: 'Dual Heavy Fog & Bubble Machine', price: 1499, quantity: 1 },
+            { id: 'laser_visuals', name: '3D Laser Mapping & Smoke Show', price: 1999, quantity: 1 }
+          ],
+          status: 'confirmed',
+          notes: 'Customer brings customized floral cake at 6:30 PM.',
+          shareCode: 'VELVET-3029',
+          createdAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          userId: 'host_aditya_2026',
+          userEmail: 'aditya.verma@example.com',
+          userName: 'Aditya Verma',
+          userPhone: '+91 99881 22334',
+          eventName: 'Retro Disco Karaoke Bash',
+          roomId: 'retro-disco-fever',
+          roomName: 'Retro Disco Fever & Karaoke',
+          roomImage: 'https://images.unsplash.com/photo-1545128485-c400e7702796?auto=format&fit=crop&w=1200&q=80',
+          date: '2026-09-24',
+          timeSlot: '18:00 - 21:00',
+          durationHours: 3,
+          guestsCount: 16,
+          basePrice: 6597,
+          addOnsTotal: 1598,
+          discount: 500,
+          finalPrice: 7695,
+          pointsEarned: 100,
+          addOns: [
+            { id: 'polaroid_camera', name: 'Fujifilm Instax Kit (30 Shots)', price: 1598, quantity: 1 }
+          ],
+          status: 'confirmed',
+          notes: 'Pre-ordered 80s rock & pop playlist on the audio console.',
+          shareCode: 'DISCO-9411',
+          createdAt: new Date().toISOString()
+        }
+      ];
+
+      for (const b of sampleBookings) {
+        await createBooking(b);
+      }
+    }
+  } catch (error) {
+    console.warn('Initial bookings seeding check:', error);
+  }
+}
+
 
 

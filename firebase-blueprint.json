@@ -132,6 +132,22 @@
         "createdAt": { "type": "string" }
       },
       "required": ["name", "email", "message"]
+    },
+    "VenueSettings": {
+      "title": "Venue Configuration Settings",
+      "description": "Admin configurable WhatsApp number, venue contact details, and invoice parameters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "whatsappNumber": { "type": "string", "maxLength": 30 },
+        "businessName": { "type": "string", "maxLength": 100 },
+        "supportEmail": { "type": "string", "maxLength": 150 },
+        "venueAddress": { "type": "string", "maxLength": 300 },
+        "gstin": { "type": "string", "maxLength": 50 },
+        "invoiceNotes": { "type": "string", "maxLength": 300 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["whatsappNumber"]
     }
   },
   "firestore": {
@@ -162,6 +178,10 @@
     "/contacts/{contactId}": {
       "schema": { "$ref": "ContactMessage" },
       "description": "Event inquiries and guest contact messages"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "VenueSettings" },
+      "description": "Global venue settings such as admin WhatsApp phone number and invoice parameters"
     }
   }
 }

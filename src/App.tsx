@@ -47,6 +47,9 @@ function AppContent() {
   const [pendingBookRoom, setPendingBookRoom] = useState<Room | null>(null);
   const [pendingBookDuration, setPendingBookDuration] = useState<number | null>(null);
 
+  // When admin is viewing a booking details page, hide top navbar, footer, and bottom bars
+  const [isViewingAdminBookingDetails, setIsViewingAdminBookingDetails] = useState(false);
+
   // Sync route with URL (support /admin, /about, /contact)
   useEffect(() => {
     const handleLocation = () => {
@@ -89,6 +92,7 @@ function AppContent() {
       return;
     }
     setActiveView(view);
+    setIsViewingAdminBookingDetails(false);
     if (view === 'admin') {
       window.history.pushState(null, '', '/admin');
     } else if (view === 'about') {
@@ -190,21 +194,26 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[#202020] text-gray-100 flex flex-col selection:bg-amber-500 selection:text-slate-950 font-sans">
       
-      {/* Top Navigation */}
-      <Navbar
-        activeView={activeView}
-        setActiveView={handleNavigateView}
-        dashboardTab={dashboardTab}
-        setDashboardTab={setDashboardTab}
-        onNavigateAuth={handleNavigateAuth}
-      />
+      {/* Top Navigation - Hidden when viewing dedicated booking details page inside admin */}
+      {!isViewingAdminBookingDetails && (
+        <Navbar
+          activeView={activeView}
+          setActiveView={handleNavigateView}
+          dashboardTab={dashboardTab}
+          setDashboardTab={setDashboardTab}
+          onNavigateAuth={handleNavigateAuth}
+        />
+      )}
 
       {/* Main Container - Renders dedicated pages with NO popups */}
       <main className="flex-1 pb-20 md:pb-12">
         
         {/* VIEW 1: ADMIN OPERATIONS DASHBOARD (/admin) */}
         {activeView === 'admin' && (
-          <AdminPanel onNavigateHome={() => handleNavigateView('home')} />
+          <AdminPanel 
+            onNavigateHome={() => handleNavigateView('home')} 
+            onViewingDetailsChange={setIsViewingAdminBookingDetails}
+          />
         )}
 
         {/* VIEW 2: DEDICATED SEPARATE ROOM DETAILS PAGE (with video tour, pictures gallery, specs) */}
@@ -571,34 +580,36 @@ function AppContent() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-[#383838] bg-[#1d1d1d] py-10 text-xs text-gray-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-            <span className="font-bold text-gray-200 font-outfit text-sm">CELEBRATO</span>
-            <span>• Premium Party Rooms & Event Vault</span>
+      {/* Footer - Hidden when viewing booking details inside admin */}
+      {!isViewingAdminBookingDetails && (
+        <footer className="border-t border-[#383838] bg-[#1d1d1d] py-10 text-xs text-gray-400">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+              <span className="font-bold text-gray-200 font-outfit text-sm">CELEBRATO</span>
+              <span>• Premium Party Rooms & Event Vault</span>
+            </div>
+
+            <div className="flex items-center gap-5 flex-wrap justify-center">
+              <button
+                onClick={() => handleNavigateView('about')}
+                className="text-gray-400 hover:text-white transition"
+              >
+                About Celebrato
+              </button>
+
+              <button
+                onClick={() => handleNavigateView('contact')}
+                className="text-gray-400 hover:text-white transition"
+              >
+                Contact Concierge
+              </button>
+            </div>
           </div>
+        </footer>
+      )}
 
-          <div className="flex items-center gap-5 flex-wrap justify-center">
-            <button
-              onClick={() => handleNavigateView('about')}
-              className="text-gray-400 hover:text-white transition"
-            >
-              About Celebrato
-            </button>
-
-            <button
-              onClick={() => handleNavigateView('contact')}
-              className="text-gray-400 hover:text-white transition"
-            >
-              Contact Concierge
-            </button>
-          </div>
-        </div>
-      </footer>
-
-      {/* Mobile 4-Tab Bottom Bar - Hidden on Auth Page and in Admin View */}
-      {activeView !== 'auth' && activeView !== 'admin' && !isAdmin && (
+      {/* Mobile 4-Tab Bottom Bar - Hidden on Auth Page, in Admin View, and when inspecting booking */}
+      {!isViewingAdminBookingDetails && activeView !== 'auth' && activeView !== 'admin' && !isAdmin && (
         <BottomBar
           activeView={activeView}
           setActiveView={handleNavigateView}

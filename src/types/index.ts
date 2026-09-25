@@ -102,4 +102,15 @@ export interface ContactMessage {
   createdAt: string;
 }
 
+export interface VenueSettings {
+  id?: string;
+  whatsappNumber: string;
+  businessName: string;
+  supportEmail: string;
+  venueAddress: string;
+  gstin?: string;
+  invoiceNotes?: string;
+  updatedAt?: string;
+}
+
 export type AppView = 'home' | 'room-detail' | 'booking' | 'dashboard' | 'admin' | 'auth' | 'about' | 'contact' | 'mem-vault' | 'profile';

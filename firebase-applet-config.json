@@ -1,11 +1,12 @@
 {
   "projectId": "attendance-dash",
-  "appId": "1:199677597256:web:7ee8adc37f557001876a7d",
+  "appId": "1:199677597256:web:55ae556398680048876a7d",
   "apiKey": "AIzaSyDGaYNMJYRjKySRMkAuA9PBkR65fK5iNew",
   "authDomain": "attendance-dash.firebaseapp.com",
-  "databaseURL": "https://attendance-dash-default-rtdb.firebaseio.com",
+  "firestoreDatabaseId": "ai-studio-celebratopartyro-7969d18d-d6b9-4ea1-a248-45cd3ee2c7cf",
   "storageBucket": "attendance-dash.firebasestorage.app",
   "messagingSenderId": "199677597256",
-  "measurementId": "G-1BQS8QZGRT",
-  "firestoreDatabaseId": "ai-studio-celebratopartyro-7969d18d-d6b9-4ea1-a248-45cd3ee2c7cf"
+  "measurementId": "",
+  "oAuthClientId": "199677597256-4pu8irokdo1fviri06eqijvfrv0i2rhe.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

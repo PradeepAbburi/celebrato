@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Send, 
@@ -15,7 +15,8 @@ import {
   MessageSquare
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { sendContactMessage } from '../services/partyDataService';
+import { sendContactMessage, subscribeVenueSettings, DEFAULT_VENUE_SETTINGS } from '../services/partyDataService';
+import { VenueSettings } from '../types';
 
 interface ContactPageProps {
   onBack: () => void;
@@ -30,9 +31,36 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
   const [guestsEstimated, setGuestsEstimated] = useState<number>(20);
   const [message, setMessage] = useState('');
 
+  const [venueSettings, setVenueSettings] = useState<VenueSettings>(DEFAULT_VENUE_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeVenueSettings((settings) => {
+      setVenueSettings(settings);
+    });
+    return () => unsub();
+  }, []);
+
+  const buildWhatsAppUrl = () => {
+    const cleanNumber = venueSettings.whatsappNumber.replace(/\D/g, '') || '919876543210';
+    const text = `🎉 *New Celebration Inquiry - Celebrato*
+----------------------------------------
+• *Name:* ${name || 'Prospective Host'}
+• *Email:* ${email}
+• *Phone:* ${phone || 'Not provided'}
+• *Event Type:* ${eventType}
+• *Preferred Date:* ${eventDate || 'Flexible / To Be Finalized'}
+• *Expected Guests:* ${guestsEstimated} guests
+
+📝 *Message & Custom Requests:*
+${message}
+----------------------------------------
+_Sent from Celebrato Party Concierge_`;
+
+    return `https://wa.me/${cleanNumber}?text=${encodeURIComponent(text)}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +73,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
     setError(null);
 
     try {
+      // 1. Save inquiry into Firestore (so it populates the Admin Inquiries tab in real-time)
       await sendContactMessage({
         name: name.trim(),
         email: email.trim(),
@@ -55,10 +84,14 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
         message: message.trim(),
       });
 
-      // Fire festive confetti
+      // 2. Open WhatsApp redirection directly to admin
+      const waUrl = buildWhatsAppUrl();
+      window.open(waUrl, '_blank');
+
+      // 3. Fire festive celebration confetti
       confetti({
-        particleCount: 80,
-        spread: 70,
+        particleCount: 90,
+        spread: 75,
         origin: { y: 0.6 }
       });
 
@@ -137,15 +170,25 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
                 <div>Guests: <span className="text-gray-200">{guestsEstimated} people</span></div>
               </div>
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a
+                  id="contact-submitted-whatsapp-btn"
+                  href={buildWhatsAppUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Chat on WhatsApp with Admin</span>
+                </a>
                 <button
                   onClick={handleReset}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#323232] hover:bg-[#3c3c3c] text-white text-xs font-bold transition border border-[#444]"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#323232] hover:bg-[#3c3c3c] text-white text-xs font-bold transition border border-[#444] cursor-pointer"
                 >
                   Send Another Inquiry
                 </button>
                 <button
                   onClick={onBack}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition shadow-lg shadow-amber-500/20"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition shadow-lg shadow-amber-500/20 cursor-pointer"
                 >
                   Return to Party Rooms
                 </button>
@@ -311,15 +354,30 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
 
             <div className="space-y-4 text-sm">
               <div className="flex items-start gap-3.5 p-3 rounded-2xl bg-[#202020] border border-[#343434]">
-                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
                   <Phone className="w-4 h-4" />
                 </div>
-                <div>
-                  <div className="text-xs text-gray-400 font-medium">Hotline & WhatsApp</div>
-                  <a href="tel:+15557278948" className="font-bold text-white hover:text-amber-400 transition">
-                    +1 (555) 727-8948
-                  </a>
-                  <p className="text-[11px] text-gray-500">24/7 Dedicated Host Support</p>
+                <div className="flex-1">
+                  <div className="text-xs text-gray-400 font-medium">Concierge WhatsApp & Hotline</div>
+                  <div className="flex items-center justify-between gap-2 mt-0.5">
+                    <a 
+                      href={`https://wa.me/${venueSettings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Hi Celebrato team! I would like to inquire about booking a party suite.')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-white hover:text-emerald-400 transition"
+                    >
+                      +{venueSettings.whatsappNumber}
+                    </a>
+                    <a
+                      href={`https://wa.me/${venueSettings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Hi Celebrato team! I would like to inquire about booking a party suite.')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold hover:bg-emerald-600 hover:text-white transition"
+                    >
+                      Chat
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Instant WhatsApp concierge support</p>
                 </div>
               </div>
 
@@ -329,8 +387,8 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
                 </div>
                 <div>
                   <div className="text-xs text-gray-400 font-medium">Email Inquiries</div>
-                  <a href="mailto:hello@celebrato.party" className="font-bold text-white hover:text-rose-400 transition">
-                    hello@celebrato.party
+                  <a href={`mailto:${venueSettings.supportEmail}`} className="font-bold text-white hover:text-rose-400 transition">
+                    {venueSettings.supportEmail}
                   </a>
                   <p className="text-[11px] text-gray-500">Average response in 15 mins</p>
                 </div>
@@ -342,8 +400,8 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
                 </div>
                 <div>
                   <div className="text-xs text-gray-400 font-medium">Location & Access</div>
-                  <div className="font-bold text-white">840 Neon Boulevard</div>
-                  <p className="text-[11px] text-gray-500">Entertainment Arts District, Suite 400</p>
+                  <div className="font-bold text-white leading-snug">{venueSettings.venueAddress}</div>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Private valet parking & secure guest entrance</p>
                 </div>
               </div>
 

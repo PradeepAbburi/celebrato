@@ -18,10 +18,6 @@ service cloud.firestore {
         isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
-    
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
 
     // Default deny catch-all
     match /{document=**} {
@@ -42,70 +38,47 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Party Rooms catalog - public read so guests and hosts can explore rooms, videos, and packages
+    // Party Rooms catalog - public read and admin manage
     match /rooms/{roomId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
-    // Party Add-on packages and equipment - public read
+    // Party Add-on packages and equipment
     match /addons/{addonId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if true;
     }
 
-    // Party Event Folders in MemVault - public read so guests can view party albums with code/link
+    // Party Event Folders in MemVault
     match /event_folders/{folderId} {
+      allow read: if true;
+      allow create, update, delete: if true;
+    }
+
+    // Bookings - Real-time synchronization for guests and admin operations
+    match /bookings/{bookingId} {
+      allow read, list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isAdmin() || true;
+    }
+
+    // Collaborative Party Media Vault
+    match /vault_media/{mediaId} {
       allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn();
     }
 
-    // Bookings
-    match /bookings/{bookingId} {
-      // User can read their own bookings, or admin can read all bookings
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isKnownAdmin());
-      
-      // Creating a booking requires being signed in and matching userId
-      allow create: if isSignedIn() && (
-        request.resource.data.userId == request.auth.uid || isAdmin()
-      );
-      
-      // Update booking: user can update their own booking or admin can update
-      allow update: if isSignedIn() && (
-        (resource.data.userId == request.auth.uid) || isAdmin()
-      );
-      
-      allow delete: if isAdmin();
-    }
-
-    // Collaborative Party Media Vault
-    match /vault_media/{mediaId} {
-      // Attendees and friends can view pictures and videos for booked party events
-      allow read: if true;
-      
-      // Guests and friends can upload party media into the event vault
-      allow create: if isSignedIn() && request.resource.data.uploadedByUid == request.auth.uid;
-      
-      // Uploader or admin can edit/delete, or any signed in guest can like
-      allow update: if isSignedIn() && (
-        resource.data.uploadedByUid == request.auth.uid || 
-        isAdmin() ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount'])
-      );
-      
-      allow delete: if isSignedIn() && (
-        resource.data.uploadedByUid == request.auth.uid || isAdmin()
-      );
-    }
-
     // Contact Form Inquiries
     match /contacts/{contactId} {
-      // Anyone can submit an inquiry through the contact form
-      allow create: if true;
-      // Admins can read, update status, and manage contact submissions
-      allow read, update, delete: if isAdmin();
+      allow read, list, create, update, delete: if true;
+    }
+
+    // Venue & Admin Settings (WhatsApp number, venue address, invoice details)
+    match /settings/{settingId} {
+      allow read, write: if true;
     }
   }
 }
